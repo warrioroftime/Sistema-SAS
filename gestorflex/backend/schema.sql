@@ -71,19 +71,34 @@ GO
 -- ----------------------------------------------------------------
 IF OBJECT_ID('Clientes') IS NULL
 CREATE TABLE Clientes (
-    id           INT IDENTITY(1,1) PRIMARY KEY,
-    empresa_id   INT NOT NULL REFERENCES Empresas(id),
-    nome         NVARCHAR(150) NOT NULL,
-    documento    NVARCHAR(20),           -- CPF ou CNPJ
-    telefone     NVARCHAR(20),
-    email        NVARCHAR(150),
-    endereco     NVARCHAR(250),
-    cidade       NVARCHAR(100),
-    estado       CHAR(2),
-    ativo        BIT NOT NULL DEFAULT 1,
-    criado_em    DATETIME2 NOT NULL DEFAULT GETDATE(),
+    id            INT IDENTITY(1,1) PRIMARY KEY,
+    empresa_id    INT NOT NULL REFERENCES Empresas(id),
+    nome          NVARCHAR(150) NOT NULL,      -- razão social ou nome
+    nome_fantasia NVARCHAR(150),
+    documento     NVARCHAR(20),                -- CPF ou CNPJ
+    telefone      NVARCHAR(20),
+    email         NVARCHAR(150),
+    cep           NVARCHAR(10),
+    endereco      NVARCHAR(250),               -- logradouro
+    numero        NVARCHAR(20),
+    bairro        NVARCHAR(100),
+    cidade        NVARCHAR(100),
+    estado        CHAR(2),
+    ativo         BIT NOT NULL DEFAULT 1,
+    criado_em     DATETIME2 NOT NULL DEFAULT GETDATE(),
     atualizado_em DATETIME2
 );
+GO
+
+-- Colunas adicionadas posteriormente (idempotente para bancos já existentes)
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Clientes') AND name='nome_fantasia')
+  ALTER TABLE Clientes ADD nome_fantasia NVARCHAR(150) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Clientes') AND name='cep')
+  ALTER TABLE Clientes ADD cep NVARCHAR(10) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Clientes') AND name='numero')
+  ALTER TABLE Clientes ADD numero NVARCHAR(20) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Clientes') AND name='bairro')
+  ALTER TABLE Clientes ADD bairro NVARCHAR(100) NULL;
 GO
 
 -- ----------------------------------------------------------------
@@ -102,10 +117,19 @@ CREATE TABLE Produtos (
     estoque_min   INT NOT NULL DEFAULT 5,
     status        NVARCHAR(10) NOT NULL DEFAULT 'ativo'
                   CHECK (status IN ('ativo','inativo')),
+    controla_estoque BIT NOT NULL DEFAULT 1,
+    foto          NVARCHAR(MAX) NULL,
     criado_em     DATETIME2 NOT NULL DEFAULT GETDATE(),
     atualizado_em DATETIME2,
     CONSTRAINT UQ_prod_codigo UNIQUE (empresa_id, codigo)
 );
+GO
+
+-- Colunas adicionadas posteriormente (idempotente para bancos já existentes)
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Produtos') AND name='controla_estoque')
+  ALTER TABLE Produtos ADD controla_estoque BIT NOT NULL DEFAULT 1;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Produtos') AND name='foto')
+  ALTER TABLE Produtos ADD foto NVARCHAR(MAX) NULL;
 GO
 
 -- ----------------------------------------------------------------
@@ -156,8 +180,20 @@ CREATE TABLE Vendas (
     total                DECIMAL(15,2) NOT NULL DEFAULT 0,
     observacao           NVARCHAR(500),
     usuario_id           INT REFERENCES Usuarios(id),
+    status_cobranca      NVARCHAR(20) NOT NULL DEFAULT 'recebido',  -- 'pendente' p/ fiado
+    data_vencimento      DATETIME2 NULL,
+    data_recebimento     DATETIME2 NULL,
     criado_em            DATETIME2 NOT NULL DEFAULT GETDATE()
 );
+GO
+
+-- Colunas adicionadas posteriormente (idempotente para bancos já existentes)
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Vendas') AND name='status_cobranca')
+  ALTER TABLE Vendas ADD status_cobranca NVARCHAR(20) NOT NULL DEFAULT 'recebido';
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Vendas') AND name='data_vencimento')
+  ALTER TABLE Vendas ADD data_vencimento DATETIME2 NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Vendas') AND name='data_recebimento')
+  ALTER TABLE Vendas ADD data_recebimento DATETIME2 NULL;
 GO
 
 -- ----------------------------------------------------------------
@@ -171,6 +207,28 @@ CREATE TABLE ItensVenda (
     quantidade  INT NOT NULL,
     preco_unit  DECIMAL(15,2) NOT NULL,
     subtotal    DECIMAL(15,2) NOT NULL
+);
+GO
+
+-- ----------------------------------------------------------------
+-- CONTAS A RECEBER (parcelas de vendas a prazo / fiado)
+-- ----------------------------------------------------------------
+IF OBJECT_ID('ContasReceber') IS NULL
+CREATE TABLE ContasReceber (
+    id               INT IDENTITY(1,1) PRIMARY KEY,
+    empresa_id       INT NOT NULL REFERENCES Empresas(id),
+    venda_id         INT REFERENCES Vendas(id),
+    cliente_id       INT REFERENCES Clientes(id),
+    parcela_num      INT NOT NULL DEFAULT 1,
+    parcelas_total   INT NOT NULL DEFAULT 1,
+    valor            DECIMAL(15,2) NOT NULL,
+    data_vencimento  DATETIME2 NULL,
+    status           NVARCHAR(20) NOT NULL DEFAULT 'pendente'
+                     CHECK (status IN ('pendente','recebido','cancelado')),
+    data_recebimento DATETIME2 NULL,
+    valor_recebido   DECIMAL(15,2) NULL,
+    observacao       NVARCHAR(500) NULL,
+    criado_em        DATETIME2 NOT NULL DEFAULT GETDATE()
 );
 GO
 
@@ -206,7 +264,7 @@ BEGIN
         @emp,
         'Administrador',
         'admin@gestorflex.com',
-        '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lF/.',  -- admin123
+        '$2b$10$7auEnT5GnMheCt4zTSnPxe09JvgY6lKYlxzYhJMDkfYuvb7nJ9E3K',  -- admin123
         'admin'
     );
 
