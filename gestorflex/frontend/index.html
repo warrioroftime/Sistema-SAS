@@ -547,8 +547,11 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
       <a class="nav-item" href="javascript:void(0)" onclick="navigate('pdv')">
         <i class="fa-solid fa-store"></i> PDV
       </a>
+      <a class="nav-item" href="javascript:void(0)" onclick="navigate('caixa')">
+        <i class="fa-solid fa-cash-register"></i> Caixa
+      </a>
       <a class="nav-item" href="javascript:void(0)" onclick="navigate('vendas')">
-        <i class="fa-solid fa-cash-register"></i> Nova Venda
+        <i class="fa-solid fa-file-invoice-dollar"></i> Nova Venda
       </a>
       <a class="nav-item" href="javascript:void(0)" onclick="navigate('historico')">
         <i class="fa-solid fa-receipt"></i> Histórico de Vendas
@@ -816,9 +819,13 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
       <div class="pdv-layout">
         <!-- Esquerda: Produtos -->
         <div class="pdv-left">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+            <div style="font-size:11px;color:var(--text3)"><i class="fa-solid fa-keyboard" style="margin-right:3px"></i><b>F1</b> Produto · <b>F2</b> Cliente · <b>F3</b> Desconto · <b>F4</b> Dinheiro · <b>Esc</b> Cancelar</div>
+            <button id="pdv-caixa-status" onclick="navigate('caixa')" style="background:none;border:none;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;font-family:inherit;padding:2px 6px"></button>
+          </div>
           <div class="pdv-search">
             <i class="bi bi-search pdv-search-icon"></i>
-            <input id="pdv-busca" placeholder="Buscar produto por nome ou código..." oninput="pdvBuscar(this.value)" autocomplete="off">
+            <input id="pdv-busca" placeholder="Buscar produto, ou bipe o código de barras..." oninput="pdvBuscar(this.value)" onkeydown="pdvBuscaKeydown(event)" autocomplete="off">
           </div>
           <div id="pdv-cats" class="pdv-cats"></div>
           <div id="pdv-grid" class="pdv-grid"></div>
@@ -887,6 +894,14 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- CAIXA -->
+    <div id="page-caixa" class="page">
+      <div class="page-header">
+        <div><div class="page-title"><i class="fa-solid fa-cash-register"></i>Caixa</div><div class="page-sub"><i class="bi bi-wallet2"></i> Abertura, sangria/suprimento e fechamento do turno</div></div>
+      </div>
+      <div id="caixa-conteudo"><div class="empty-state"><div class="spinner"></div></div></div>
     </div>
 
     <!-- PRODUTOS -->
@@ -1220,7 +1235,7 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
         <div style="display:flex;align-items:center;gap:14px">
           <div style="flex:1">
             <label style="font-size:11px;color:var(--text3);font-weight:600;display:block;margin-bottom:5px">Valor Recebido (R$)</label>
-            <input id="pdv-recebido" type="number" min="0" step="0.01" value="" placeholder="0,00" oninput="pdvCalcTroco()" class="form-input" style="font-size:20px;font-weight:800;text-align:right">
+            <input id="pdv-recebido" type="number" min="0" step="0.01" value="" placeholder="0,00" oninput="pdvCalcTroco()" onkeydown="if(event.key==='Enter')pdvFinalizar()" class="form-input" style="font-size:20px;font-weight:800;text-align:right">
           </div>
           <div style="text-align:center;flex-shrink:0">
             <div style="font-size:11px;color:var(--text3);font-weight:600;margin-bottom:4px">Troco</div>
@@ -1272,6 +1287,58 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
 </div>
 
 <!-- Produto -->
+<!-- Caixa: Sangria / Suprimento -->
+<div class="modal-backdrop" id="modal-caixa-mov">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><span class="modal-title" id="mcx-mov-titulo">Movimentação</span><button class="btn-icon" onclick="closeModal('modal-caixa-mov')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="mcx-mov-tipo">
+      <div id="mcx-mov-desc-info" class="alert" style="margin-bottom:14px"></div>
+      <div class="form-group">
+        <label class="form-label">Valor (R$) *</label>
+        <input class="form-input" id="mcx-mov-valor" type="number" min="0" step="0.01" placeholder="0,00" style="font-size:18px;font-weight:700" onkeydown="if(event.key==='Enter')salvarMovCaixa()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição / Motivo</label>
+        <input class="form-input" id="mcx-mov-descricao" placeholder="Ex: troco, pagamento fornecedor, retirada...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-caixa-mov')">Cancelar</button>
+      <button class="btn btn-primary" id="mcx-mov-btn" onclick="salvarMovCaixa()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Caixa: Fechamento (conferência) -->
+<div class="modal-backdrop" id="modal-caixa-fechar">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header"><span class="modal-title"><i class="fa-solid fa-lock" style="margin-right:8px;color:var(--amber)"></i>Fechar Caixa</span><button class="btn-icon" onclick="closeModal('modal-caixa-fechar')">✕</button></div>
+    <div class="modal-body">
+      <div class="pdv-totals" style="margin-bottom:16px">
+        <div class="pdv-total-row"><span class="c-text2">Troco inicial (abertura)</span><span class="fw-600" id="mcxf-abertura">R$ 0,00</span></div>
+        <div class="pdv-total-row"><span class="c-text2">+ Vendas em dinheiro</span><span class="fw-600 c-green" id="mcxf-vendas">R$ 0,00</span></div>
+        <div class="pdv-total-row"><span class="c-text2">+ Suprimentos</span><span class="fw-600 c-green" id="mcxf-suprimentos">R$ 0,00</span></div>
+        <div class="pdv-total-row"><span class="c-text2">− Sangrias</span><span class="fw-600 c-red" id="mcxf-sangrias">R$ 0,00</span></div>
+        <div class="pdv-total-final"><span>ESPERADO EM CAIXA</span><span id="mcxf-esperado">R$ 0,00</span></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Dinheiro contado na gaveta (R$) *</label>
+        <input class="form-input" id="mcxf-informado" type="number" min="0" step="0.01" placeholder="0,00" style="font-size:18px;font-weight:700" oninput="mcxfCalcDif()">
+      </div>
+      <div class="alert" id="mcxf-dif" style="display:none"></div>
+      <div class="form-group">
+        <label class="form-label">Observação (opcional)</label>
+        <input class="form-input" id="mcxf-obs" placeholder="Ex: diferença justificada por...">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-caixa-fechar')">Cancelar</button>
+      <button class="btn btn-primary" id="mcxf-btn" onclick="confirmarFecharCaixa()"><i class="fa-solid fa-lock"></i> Fechar Caixa</button>
+    </div>
+  </div>
+</div>
+
 <!-- Grupo -->
 <div class="modal-backdrop" id="modal-grupo">
   <div class="modal" style="max-width:420px">
@@ -1683,13 +1750,13 @@ function doLogout() {
 
 // ── Navigation ────────────────────────────────────────────────────
 const pageNames = {
-  dashboard:'Dashboard', pdv:'PDV — Ponto de Venda', vendas:'Nova Venda', historico:'Histórico de Vendas',
+  dashboard:'Dashboard', pdv:'PDV — Ponto de Venda', caixa:'Caixa', vendas:'Nova Venda', historico:'Histórico de Vendas',
   produtos:'Produtos', grupos:'Grupos', clientes:'Clientes', estoque:'Posição do Estoque',
   movimentacoes:'Movimentações', 'contas-receber':'Contas a Receber', relatorios:'Relatórios',
   empresas:'Empresas', 'adm-usuarios':'Usuários',
 };
 const pageLoaders = {
-  dashboard: loadDashboard, pdv: loadPDV, historico: loadHistorico, produtos: loadProdutos,
+  dashboard: loadDashboard, pdv: loadPDV, caixa: loadCaixa, historico: loadHistorico, produtos: loadProdutos,
   grupos: loadGrupos, clientes: loadClientes, estoque: loadEstoque, movimentacoes: loadMovimentacoes,
   'contas-receber': loadContasReceber, relatorios: loadRelatorios,
   empresas: () => { loadEmpresas(); },
@@ -2418,6 +2485,8 @@ function pdvGetIcon(cat) {
 }
 
 async function loadPDV() {
+  // status do caixa (não bloqueia a renderização)
+  api.get('/caixa/atual').then(c => { caixaAtual = c; pdvAtualizarStatusCaixa(); }).catch(() => {});
   try {
     const r = await api.get('/produtos?status=ativo&limit=500');
     pdvProdutosAll = r.data || [];
@@ -2490,6 +2559,67 @@ function pdvBuscar(q) {
     return mc && mb;
   }));
 }
+
+// Leitor de código de barras / Enter na busca: identifica o produto e joga no carrinho
+function pdvBuscaKeydown(e) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const inp = document.getElementById('pdv-busca');
+  const termo = inp.value.trim();
+  if (!termo) return;
+  const tl = termo.toLowerCase();
+  // 1) match exato por código (caso do leitor de código de barras)
+  let prod = pdvProdutosAll.find(p => (p.codigo || '').toLowerCase() === tl);
+  // 2) senão, se a busca atual filtrar para exatamente 1 produto, usa ele
+  if (!prod) {
+    const matches = pdvProdutosAll.filter(p =>
+      p.descricao.toLowerCase().includes(tl) || (p.codigo || '').toLowerCase().includes(tl));
+    if (matches.length === 1) prod = matches[0];
+  }
+  if (!prod) { toast('Produto não encontrado: ' + termo, 'error'); return; }
+  const controla = !!prod.controla_estoque;
+  if (controla && (prod.estoque || 0) <= 0) { toast(`"${prod.descricao}" sem estoque.`, 'warning'); inp.value=''; return; }
+  pdvAdd(prod.id, prod.descricao, +prod.preco_venda, controla ? prod.estoque : 9999);
+  inp.value = '';
+  pdvBuscar('');     // reseta a grade
+  inp.focus();       // mantém o foco para o próximo "bipe"
+}
+
+// Atalhos de teclado — ativos apenas no PDV
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('page-pdv')?.classList.contains('active')) return;
+  const modalPgtoOpen = document.getElementById('modal-pdv-pgto')?.classList.contains('open');
+  switch (e.key) {
+    case 'F1': // buscar produto
+      e.preventDefault();
+      { const i = document.getElementById('pdv-busca'); if (i) { i.focus(); i.select(); } }
+      break;
+    case 'F2': // selecionar cliente
+      e.preventDefault();
+      document.getElementById('pdv-cli-busca')?.focus();
+      break;
+    case 'F3': // aplicar desconto
+      e.preventDefault();
+      { const i = document.getElementById('pdv-desc'); if (i) { i.focus(); i.select(); } }
+      break;
+    case 'F4': // fechar venda em dinheiro
+      e.preventDefault();
+      if (modalPgtoOpen) {
+        pdvFinalizar();
+      } else if (pdvCart.length) {
+        pdvPgto = 'dinheiro';
+        pdvAbrirModalPgto();
+        setTimeout(() => document.getElementById('pdv-recebido')?.focus(), 120);
+      } else {
+        toast('Carrinho vazio.', 'error');
+      }
+      break;
+    case 'Escape': // cancelar
+      if (modalPgtoOpen) { e.preventDefault(); pdvFecharModalPgto(); }
+      else if (pdvCart.length) { e.preventDefault(); pdvLimpar(); }
+      break;
+  }
+});
 
 function pdvAdd(id, desc, preco, estoqueMax) {
   const ex = pdvCart.find(c => c.id === id);
@@ -2793,6 +2923,209 @@ async function pdvFinalizar() {
   finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> CONFIRMAR VENDA';
+  }
+}
+
+// ── CAIXA ─────────────────────────────────────────────────────────
+let caixaAtual = null; // { aberto, caixa, movimentacoes, resumo }
+
+async function loadCaixa() {
+  const el = document.getElementById('caixa-conteudo');
+  el.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
+  try {
+    caixaAtual = await api.get('/caixa/atual');
+    if (caixaAtual.aberto) renderCaixaAberto();
+    else renderCaixaFechado();
+    pdvAtualizarStatusCaixa();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function renderCaixaFechado() {
+  document.getElementById('caixa-conteudo').innerHTML = `
+    <div class="card" style="max-width:460px;margin:0 auto;text-align:center">
+      <div style="width:64px;height:64px;border-radius:50%;background:var(--amber-light);display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+        <i class="fa-solid fa-lock" style="font-size:26px;color:var(--amber)"></i>
+      </div>
+      <div style="font-size:17px;font-weight:700;margin-bottom:4px">Caixa fechado</div>
+      <div class="c-text3 fs-13" style="margin-bottom:20px">Informe o troco inicial para abrir o caixa e começar a operar.</div>
+      <div class="form-group" style="text-align:left">
+        <label class="form-label">Troco inicial / fundo de caixa (R$)</label>
+        <input class="form-input" id="caixa-abertura-valor" type="number" min="0" step="0.01" value="0" style="font-size:18px;font-weight:700;text-align:center" onkeydown="if(event.key==='Enter')abrirCaixa()">
+      </div>
+      <div class="form-group" style="text-align:left">
+        <label class="form-label">Observação (opcional)</label>
+        <input class="form-input" id="caixa-abertura-obs" placeholder="Ex: turno manhã">
+      </div>
+      <button class="btn btn-primary" id="caixa-abrir-btn" onclick="abrirCaixa()" style="width:100%;justify-content:center;margin-top:6px">
+        <i class="fa-solid fa-unlock"></i> Abrir Caixa
+      </button>
+    </div>`;
+}
+
+function renderCaixaAberto() {
+  const c = caixaAtual.caixa, r = caixaAtual.resumo;
+  const movs = caixaAtual.movimentacoes || [];
+  const movsHtml = movs.length
+    ? movs.map(m => `
+        <div class="cart-item">
+          <div style="width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${m.tipo==='suprimento'?'var(--green-light)':'var(--red-light)'};color:${m.tipo==='suprimento'?'var(--green)':'var(--red)'}">
+            <i class="fa-solid fa-${m.tipo==='suprimento'?'arrow-down':'arrow-up'}"></i>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div class="fs-13 fw-600" style="text-transform:capitalize">${m.tipo}${m.descricao?` <span class="c-text3 fw-600" style="font-weight:400">— ${m.descricao}</span>`:''}</div>
+            <div class="fs-12 c-text3">${fmtDt(m.criado_em)}</div>
+          </div>
+          <div class="fw-700" style="color:${m.tipo==='suprimento'?'var(--green)':'var(--red)'}">${m.tipo==='suprimento'?'+':'−'} ${R(m.valor)}</div>
+        </div>`).join('')
+    : '<div class="empty-state" style="padding:20px">Nenhuma sangria ou suprimento registrado.</div>';
+
+  document.getElementById('caixa-conteudo').innerHTML = `
+    <div class="grid-2" style="align-items:start">
+      <div>
+        <div class="card mb-16">
+          <div class="flex flex-between flex-center" style="margin-bottom:12px">
+            <span class="badge badge-green"><i class="fa-solid fa-circle" style="font-size:7px;margin-right:5px"></i> Caixa Aberto</span>
+            <span class="fs-12 c-text3">Aberto em ${fmtDt(c.data_abertura)}</span>
+          </div>
+          <div class="cr-summary" style="grid-template-columns:1fr 1fr;margin-bottom:0">
+            <div class="cr-card"><div class="cr-card-label"><i class="fa-solid fa-wallet"></i> Troco inicial</div><div class="cr-card-value">${R(r.valor_abertura)}</div></div>
+            <div class="cr-card"><div class="cr-card-label"><i class="fa-solid fa-money-bill-wave" style="color:var(--green)"></i> Vendas dinheiro</div><div class="cr-card-value c-green">${R(r.vendas_dinheiro)}</div></div>
+            <div class="cr-card"><div class="cr-card-label"><i class="fa-solid fa-arrow-down" style="color:var(--green)"></i> Suprimentos</div><div class="cr-card-value c-green">${R(r.suprimentos)}</div></div>
+            <div class="cr-card"><div class="cr-card-label"><i class="fa-solid fa-arrow-up" style="color:var(--red)"></i> Sangrias</div><div class="cr-card-value c-red">${R(r.sangrias)}</div></div>
+          </div>
+          <div class="venda-total-display" style="margin-top:14px">
+            <div><div class="venda-total-label">Esperado em caixa (dinheiro)</div></div>
+            <span class="venda-total-value">${R(r.esperado_dinheiro)}</span>
+          </div>
+          <div class="fs-12 c-text3 mt-8"><i class="fa-solid fa-circle-info"></i> ${r.qtd_vendas} venda(s) no turno · Total geral vendido: ${R(r.vendas_total)}</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" style="flex:1;justify-content:center" onclick="abrirModalMov('suprimento')"><i class="fa-solid fa-arrow-down" style="color:var(--green)"></i> Suprimento</button>
+          <button class="btn btn-secondary" style="flex:1;justify-content:center" onclick="abrirModalMov('sangria')"><i class="fa-solid fa-arrow-up" style="color:var(--red)"></i> Sangria</button>
+          <button class="btn btn-primary" style="flex:1;justify-content:center" onclick="abrirModalFecharCaixa()"><i class="fa-solid fa-lock"></i> Fechar Caixa</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title"><i class="fa-solid fa-right-left" style="margin-right:6px;color:var(--blue)"></i>Sangrias e Suprimentos</div>
+        <div>${movsHtml}</div>
+      </div>
+    </div>`;
+}
+
+async function abrirCaixa() {
+  const valor = parseFloat(document.getElementById('caixa-abertura-valor').value) || 0;
+  const obs   = (document.getElementById('caixa-abertura-obs').value || '').trim();
+  setBtnLoading('caixa-abrir-btn', true);
+  try {
+    await api.post('/caixa/abrir', { valor_abertura: valor, observacao: obs });
+    toast('Caixa aberto!', 'success');
+    loadCaixa();
+  } catch (err) {
+    toast(err.message, 'error');
+    setBtnLoading('caixa-abrir-btn', false);
+  }
+}
+
+function abrirModalMov(tipo) {
+  document.getElementById('mcx-mov-tipo').value = tipo;
+  document.getElementById('mcx-mov-titulo').textContent = tipo === 'suprimento' ? 'Suprimento (entrada de troco)' : 'Sangria (retirada de dinheiro)';
+  document.getElementById('mcx-mov-btn').textContent = 'Confirmar';
+  document.getElementById('mcx-mov-valor').value = '';
+  document.getElementById('mcx-mov-descricao').value = '';
+  const info = document.getElementById('mcx-mov-desc-info');
+  if (tipo === 'suprimento') {
+    info.className = 'alert alert-success';
+    info.innerHTML = '<i class="fa-solid fa-arrow-down"></i> Entrada de dinheiro no caixa (reforço de troco).';
+  } else {
+    info.className = 'alert alert-warning';
+    info.innerHTML = '<i class="fa-solid fa-arrow-up"></i> Retirada de dinheiro do caixa (sangria).';
+  }
+  openModal('modal-caixa-mov');
+  setTimeout(() => document.getElementById('mcx-mov-valor').focus(), 100);
+}
+
+async function salvarMovCaixa() {
+  const tipo  = document.getElementById('mcx-mov-tipo').value;
+  const valor = parseFloat(document.getElementById('mcx-mov-valor').value) || 0;
+  const desc  = (document.getElementById('mcx-mov-descricao').value || '').trim();
+  if (valor <= 0) { toast('Informe um valor maior que zero.', 'error'); return; }
+  setBtnLoading('mcx-mov-btn', true);
+  try {
+    await api.post('/caixa/movimentar', { tipo, valor, descricao: desc });
+    toast(tipo === 'suprimento' ? 'Suprimento registrado!' : 'Sangria registrada!', 'success');
+    closeModal('modal-caixa-mov');
+    loadCaixa();
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    setBtnLoading('mcx-mov-btn', false);
+  }
+}
+
+function abrirModalFecharCaixa() {
+  if (!caixaAtual || !caixaAtual.aberto) return;
+  const r = caixaAtual.resumo;
+  document.getElementById('mcxf-abertura').textContent    = R(r.valor_abertura);
+  document.getElementById('mcxf-vendas').textContent      = R(r.vendas_dinheiro);
+  document.getElementById('mcxf-suprimentos').textContent = R(r.suprimentos);
+  document.getElementById('mcxf-sangrias').textContent    = R(r.sangrias);
+  document.getElementById('mcxf-esperado').textContent    = R(r.esperado_dinheiro);
+  document.getElementById('mcxf-informado').value = '';
+  document.getElementById('mcxf-obs').value = '';
+  document.getElementById('mcxf-dif').style.display = 'none';
+  openModal('modal-caixa-fechar');
+  setTimeout(() => document.getElementById('mcxf-informado').focus(), 100);
+}
+
+function mcxfCalcDif() {
+  const esperado  = caixaAtual?.resumo?.esperado_dinheiro || 0;
+  const informado = parseFloat(document.getElementById('mcxf-informado').value);
+  const el = document.getElementById('mcxf-dif');
+  if (isNaN(informado)) { el.style.display = 'none'; return; }
+  const dif = +(informado - esperado).toFixed(2);
+  el.style.display = 'flex';
+  if (dif === 0) {
+    el.className = 'alert alert-success';
+    el.innerHTML = '<i class="fa-solid fa-circle-check"></i> Caixa confere exatamente. Diferença: R$ 0,00';
+  } else if (dif > 0) {
+    el.className = 'alert alert-info';
+    el.innerHTML = `<i class="fa-solid fa-arrow-up"></i> Sobra de ${R(dif)} no caixa.`;
+  } else {
+    el.className = 'alert alert-error';
+    el.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Falta de ${R(Math.abs(dif))} no caixa.`;
+  }
+}
+
+async function confirmarFecharCaixa() {
+  const informado = parseFloat(document.getElementById('mcxf-informado').value);
+  if (isNaN(informado)) { toast('Informe o valor contado na gaveta.', 'error'); return; }
+  const obs = (document.getElementById('mcxf-obs').value || '').trim();
+  setBtnLoading('mcxf-btn', true);
+  try {
+    const r = await api.post('/caixa/fechar', { valor_informado: informado, observacao: obs });
+    closeModal('modal-caixa-fechar');
+    const difTxt = r.diferenca === 0 ? 'caixa confere!' : (r.diferenca > 0 ? `sobra de ${R(r.diferenca)}` : `falta de ${R(Math.abs(r.diferenca))}`);
+    toast(`Caixa fechado — ${difTxt}`, r.diferenca === 0 ? 'success' : 'warning');
+    loadCaixa();
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    setBtnLoading('mcxf-btn', false);
+  }
+}
+
+// Indicador de status do caixa no PDV
+function pdvAtualizarStatusCaixa() {
+  const el = document.getElementById('pdv-caixa-status');
+  if (!el) return;
+  if (caixaAtual && caixaAtual.aberto) {
+    el.innerHTML = '<i class="fa-solid fa-circle" style="font-size:7px;color:var(--green)"></i> Caixa aberto';
+    el.style.color = 'var(--green)';
+    el.title = 'Vendas serão registradas neste turno de caixa';
+  } else {
+    el.innerHTML = '<i class="fa-solid fa-circle" style="font-size:7px;color:var(--amber)"></i> Caixa fechado';
+    el.style.color = 'var(--amber)';
+    el.title = 'Abra o caixa na aba Caixa para controlar o dinheiro do turno';
   }
 }
 

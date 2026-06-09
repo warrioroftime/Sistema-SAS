@@ -233,6 +233,46 @@ CREATE TABLE ContasReceber (
 GO
 
 -- ----------------------------------------------------------------
+-- CAIXA (turnos de caixa: abertura, sangria/suprimento, fechamento)
+-- ----------------------------------------------------------------
+IF OBJECT_ID('Caixa') IS NULL
+CREATE TABLE Caixa (
+    id              INT IDENTITY(1,1) PRIMARY KEY,
+    empresa_id      INT NOT NULL REFERENCES Empresas(id),
+    usuario_id      INT NOT NULL REFERENCES Usuarios(id),
+    valor_abertura  DECIMAL(15,2) NOT NULL DEFAULT 0,  -- troco inicial
+    data_abertura   DATETIME2 NOT NULL DEFAULT GETDATE(),
+    valor_informado DECIMAL(15,2) NULL,                -- dinheiro contado no fechamento
+    valor_esperado  DECIMAL(15,2) NULL,                -- calculado pelo sistema
+    diferenca       DECIMAL(15,2) NULL,                -- informado - esperado
+    data_fechamento DATETIME2 NULL,
+    status          NVARCHAR(10) NOT NULL DEFAULT 'aberto'
+                    CHECK (status IN ('aberto','fechado')),
+    obs_abertura    NVARCHAR(300) NULL,
+    obs_fechamento  NVARCHAR(300) NULL
+);
+GO
+
+-- Sangrias (retiradas) e suprimentos (entradas de troco)
+IF OBJECT_ID('MovimentacoesCaixa') IS NULL
+CREATE TABLE MovimentacoesCaixa (
+    id          INT IDENTITY(1,1) PRIMARY KEY,
+    caixa_id    INT NOT NULL REFERENCES Caixa(id),
+    empresa_id  INT NOT NULL REFERENCES Empresas(id),
+    tipo        NVARCHAR(12) NOT NULL CHECK (tipo IN ('sangria','suprimento')),
+    valor       DECIMAL(15,2) NOT NULL,
+    descricao   NVARCHAR(300) NULL,
+    usuario_id  INT REFERENCES Usuarios(id),
+    criado_em   DATETIME2 NOT NULL DEFAULT GETDATE()
+);
+GO
+
+-- Vincula a venda ao turno de caixa (idempotente)
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Vendas') AND name='caixa_id')
+  ALTER TABLE Vendas ADD caixa_id INT NULL;
+GO
+
+-- ----------------------------------------------------------------
 -- ÍNDICES de performance
 -- ----------------------------------------------------------------
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Vendas_empresa_data')

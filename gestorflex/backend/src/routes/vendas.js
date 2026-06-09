@@ -96,6 +96,13 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ error: 'Venda a prazo (fiado) exige um cliente selecionado.' });
     }
 
+    // Vincula a venda ao turno de caixa aberto do operador (se houver)
+    const cxOpen = await query(
+      `SELECT TOP 1 id FROM Caixa WHERE empresa_id=@emp AND usuario_id=@uid AND status='aberto' ORDER BY id DESC`,
+      { emp: req.user.empresa_id, uid: req.user.id }
+    );
+    const caixaId = cxOpen.recordset[0] ? cxOpen.recordset[0].id : null;
+
     await transaction.begin();
     const req2 = new sql.Request(transaction);
 
@@ -165,10 +172,11 @@ router.post('/', auth, async (req, res) => {
     vReq.input('stcob', isFiado ? 'pendente' : 'recebido');
     vReq.input('dvenc', dataVencimento ? new Date(dataVencimento) : null);
     vReq.input('drec',  isFiado ? null : new Date());
+    vReq.input('cxid',  caixaId);
     const vR = await vReq.query(`
-      INSERT INTO Vendas (empresa_id, cliente_id, forma_pagamento_id, subtotal, desconto, total, observacao, usuario_id, status_cobranca, data_vencimento, data_recebimento)
+      INSERT INTO Vendas (empresa_id, cliente_id, forma_pagamento_id, subtotal, desconto, total, observacao, usuario_id, status_cobranca, data_vencimento, data_recebimento, caixa_id)
       OUTPUT INSERTED.id
-      VALUES (@emp, @cid, @fp, @sub, @desc, @tot, @obs, @uid, @stcob, @dvenc, @drec)
+      VALUES (@emp, @cid, @fp, @sub, @desc, @tot, @obs, @uid, @stcob, @dvenc, @drec, @cxid)
     `);
     const vendaId = vR.recordset[0].id;
 
