@@ -82,19 +82,31 @@ router.get('/:id', auth, async (req, res) => {
 // POST /api/produtos
 router.post('/', auth, async (req, res) => {
   try {
-    const { codigo, descricao, categoria_id, preco_custo, preco_venda,
-            estoque = 0, estoque_min = 5, status = 'ativo',
-            controla_estoque = true, foto = null } = req.body;
+    let { codigo, descricao, categoria_id, preco_custo, preco_venda,
+          estoque = 0, estoque_min = 5, status = 'ativo',
+          controla_estoque = true, foto = null } = req.body;
 
-    if (!codigo || !descricao || !preco_venda) {
-      return res.status(400).json({ error: 'Código, descrição e preço de venda são obrigatórios.' });
+    if (!descricao || !preco_venda) {
+      return res.status(400).json({ error: 'Descrição e preço de venda são obrigatórios.' });
     }
 
-    const dup = await query(
-      'SELECT id FROM Produtos WHERE empresa_id=@emp AND codigo=@cod',
-      { emp: req.user.empresa_id, cod: codigo }
-    );
-    if (dup.recordset.length) return res.status(409).json({ error: 'Código já cadastrado.' });
+    codigo = codigo ? String(codigo).trim() : '';
+
+    if (!codigo) {
+      // Código não informado: gera o próximo sequencial (maior código numérico + 1)
+      const seq = await query(
+        `SELECT MAX(TRY_CONVERT(INT, codigo)) AS maxcod FROM Produtos WHERE empresa_id=@emp`,
+        { emp: req.user.empresa_id }
+      );
+      codigo = String((seq.recordset[0].maxcod || 0) + 1);
+    } else {
+      // Código informado manualmente: garante que não está duplicado
+      const dup = await query(
+        'SELECT id FROM Produtos WHERE empresa_id=@emp AND codigo=@cod',
+        { emp: req.user.empresa_id, cod: codigo }
+      );
+      if (dup.recordset.length) return res.status(409).json({ error: 'Código já cadastrado.' });
+    }
 
     const r = await query(`
       INSERT INTO Produtos (empresa_id, codigo, descricao, categoria_id, preco_custo, preco_venda,

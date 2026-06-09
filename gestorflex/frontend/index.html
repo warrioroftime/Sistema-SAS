@@ -559,6 +559,9 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
       <a class="nav-item" href="javascript:void(0)" onclick="navigate('produtos')">
         <i class="fa-solid fa-cubes"></i> Produtos
       </a>
+      <a class="nav-item" href="javascript:void(0)" onclick="navigate('grupos')">
+        <i class="fa-solid fa-layer-group"></i> Grupos
+      </a>
       <a class="nav-item" href="javascript:void(0)" onclick="navigate('clientes')">
         <i class="fa-solid fa-users"></i> Clientes
       </a>
@@ -898,12 +901,30 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
         <div class="toolbar">
           <div class="search-input"><i class="search-icon bi bi-search"></i>
             <input class="form-input" id="p-busca" placeholder="Buscar código, descrição..." oninput="debounce(loadProdutos,400)()"></div>
-          <select class="form-select" id="p-cat" style="width:170px" onchange="loadProdutos()"><option value="">Todas categorias</option></select>
+          <select class="form-select" id="p-cat" style="width:170px" onchange="loadProdutos()"><option value="">Todos grupos</option></select>
           <select class="form-select" id="p-status" style="width:130px" onchange="loadProdutos()"><option value="">Todos status</option><option value="ativo">Ativo</option><option value="inativo">Inativo</option></select>
         </div>
         <div class="table-wrap">
-          <table class="data"><thead><tr><th>Código</th><th>Descrição</th><th>Categoria</th><th>Custo</th><th>Venda</th><th>Estoque</th><th>Status</th><th>Ações</th></tr></thead>
+          <table class="data"><thead><tr><th>Código</th><th>Descrição</th><th>Grupo</th><th>Custo</th><th>Venda</th><th>Estoque</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody id="p-tbody"><tr class="loading-row"><td colspan="8"><div class="spinner"></div></td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRUPOS -->
+    <div id="page-grupos" class="page">
+      <div class="page-header">
+        <div><div class="page-title"><i class="fa-solid fa-layer-group"></i>Grupos</div><div class="page-sub"><i class="bi bi-collection"></i> Organize seus produtos em grupos</div></div>
+        <button class="btn btn-primary" onclick="abrirModalGrupo()">
+          <i class="fa-solid fa-plus"></i> Novo Grupo
+        </button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Grupo</th><th>Produtos vinculados</th><th>Ações</th></tr></thead>
+            <tbody id="grp-tbody"><tr class="loading-row"><td colspan="3"><div class="spinner"></div></td></tr></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -969,7 +990,7 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
           </select>
         </div>
         <div class="table-wrap">
-          <table class="data"><thead><tr><th>Código</th><th>Produto</th><th>Categoria</th><th>Saldo Atual</th><th>Mínimo</th><th>Situação</th><th>Ações</th></tr></thead>
+          <table class="data"><thead><tr><th>Código</th><th>Produto</th><th>Grupo</th><th>Saldo Atual</th><th>Mínimo</th><th>Situação</th><th>Ações</th></tr></thead>
           <tbody id="e-tbody"><tr class="loading-row"><td colspan="7"><div class="spinner"></div></td></tr></tbody></table>
         </div>
       </div>
@@ -1251,6 +1272,25 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
 </div>
 
 <!-- Produto -->
+<!-- Grupo -->
+<div class="modal-backdrop" id="modal-grupo">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><span class="modal-title" id="mg-titulo">Novo Grupo</span><button class="btn-icon" onclick="closeModal('modal-grupo')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="mg-id">
+      <div class="form-group">
+        <label class="form-label">Nome do Grupo *</label>
+        <input class="form-input" id="mg-nome" placeholder="Ex: Bebidas, Limpeza, Eletrônicos" onkeydown="if(event.key==='Enter')salvarGrupo()">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-grupo')">Cancelar</button>
+      <button class="btn btn-primary" id="mg-btn-salvar" onclick="salvarGrupo()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Produto -->
 <div class="modal-backdrop" id="modal-produto">
   <div class="modal">
     <div class="modal-header"><span class="modal-title" id="mp-titulo">Novo Produto</span><button class="btn-icon" onclick="closeModal('modal-produto')">✕</button></div>
@@ -1273,8 +1313,8 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
         <!-- Campos principais -->
         <div style="display:flex;flex-direction:column;gap:0">
           <div class="form-row cols-2">
-            <div class="form-group"><label class="form-label">Código *</label><input class="form-input" id="mp-cod" placeholder="Ex: P001"></div>
-            <div class="form-group"><label class="form-label">Categoria</label><select class="form-select" id="mp-cat"></select></div>
+            <div class="form-group"><label class="form-label">Código</label><input class="form-input" id="mp-cod" placeholder="Automático"><div class="form-hint">Deixe em branco para gerar automaticamente</div></div>
+            <div class="form-group"><label class="form-label">Grupo</label><select class="form-select" id="mp-cat"></select></div>
           </div>
           <div class="form-group"><label class="form-label">Descrição *</label><input class="form-input" id="mp-desc" placeholder="Nome do produto"></div>
         </div>
@@ -1644,13 +1684,13 @@ function doLogout() {
 // ── Navigation ────────────────────────────────────────────────────
 const pageNames = {
   dashboard:'Dashboard', pdv:'PDV — Ponto de Venda', vendas:'Nova Venda', historico:'Histórico de Vendas',
-  produtos:'Produtos', clientes:'Clientes', estoque:'Posição do Estoque',
+  produtos:'Produtos', grupos:'Grupos', clientes:'Clientes', estoque:'Posição do Estoque',
   movimentacoes:'Movimentações', 'contas-receber':'Contas a Receber', relatorios:'Relatórios',
   empresas:'Empresas', 'adm-usuarios':'Usuários',
 };
 const pageLoaders = {
   dashboard: loadDashboard, pdv: loadPDV, historico: loadHistorico, produtos: loadProdutos,
-  clientes: loadClientes, estoque: loadEstoque, movimentacoes: loadMovimentacoes,
+  grupos: loadGrupos, clientes: loadClientes, estoque: loadEstoque, movimentacoes: loadMovimentacoes,
   'contas-receber': loadContasReceber, relatorios: loadRelatorios,
   empresas: () => { loadEmpresas(); },
   'adm-usuarios': () => { loadEmpresasSelect(); loadAdmUsuarios(); },
@@ -1744,9 +1784,74 @@ async function loadCategorias() {
     _categorias = await api.get('/produtos/categorias');
     const sel = document.getElementById('p-cat');
     const cur = sel.value;
-    sel.innerHTML = '<option value="">Todas categorias</option>' +
+    sel.innerHTML = '<option value="">Todos grupos</option>' +
       _categorias.map(c => `<option value="${c.nome}"${cur===c.nome?' selected':''}>${c.nome}</option>`).join('');
   } catch {}
+}
+
+// ── GRUPOS ────────────────────────────────────────────────────────
+async function loadGrupos() {
+  document.getElementById('grp-tbody').innerHTML = '<tr class="loading-row"><td colspan="3"><div class="spinner"></div></td></tr>';
+  try {
+    const data = await api.get('/grupos');
+    document.getElementById('grp-tbody').innerHTML = data.length
+      ? data.map(g => `<tr>
+          <td><span class="badge badge-blue">${g.nome}</span></td>
+          <td class="fw-600">${g.qtd_produtos} produto${g.qtd_produtos!==1?'s':''}</td>
+          <td>
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-secondary btn-sm" onclick="editarGrupo(${g.id}, '${g.nome.replace(/'/g,"\\'")}')">Editar</button>
+              <button class="btn btn-sm" style="background:var(--red-light);color:var(--red);border:none" onclick="excluirGrupo(${g.id}, '${g.nome.replace(/'/g,"\\'")}')">Excluir</button>
+            </div>
+          </td>
+        </tr>`).join('')
+      : '<tr><td colspan="3" class="text-center" style="padding:30px;color:var(--text3)">Nenhum grupo cadastrado. Clique em "Novo Grupo".</td></tr>';
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function abrirModalGrupo() {
+  document.getElementById('mg-titulo').textContent = 'Novo Grupo';
+  document.getElementById('mg-id').value = '';
+  document.getElementById('mg-nome').value = '';
+  openModal('modal-grupo');
+  setTimeout(() => document.getElementById('mg-nome').focus(), 100);
+}
+
+function editarGrupo(id, nome) {
+  document.getElementById('mg-titulo').textContent = 'Editar Grupo';
+  document.getElementById('mg-id').value = id;
+  document.getElementById('mg-nome').value = nome;
+  openModal('modal-grupo');
+  setTimeout(() => document.getElementById('mg-nome').focus(), 100);
+}
+
+async function salvarGrupo() {
+  const id   = qsV('#mg-id');
+  const nome = qsV('#mg-nome').trim();
+  if (!nome) { toast('Nome do grupo obrigatório.', 'error'); return; }
+  setBtnLoading('mg-btn-salvar', true);
+  try {
+    if (id) await api.put('/grupos/' + id, { nome });
+    else    await api.post('/grupos', { nome });
+    toast(id ? 'Grupo atualizado!' : 'Grupo cadastrado!');
+    closeModal('modal-grupo');
+    loadGrupos();
+    loadCategorias(); // atualiza o seletor de grupos do produto
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    setBtnLoading('mg-btn-salvar', false);
+  }
+}
+
+async function excluirGrupo(id, nome) {
+  if (!confirm(`Excluir o grupo "${nome}"?\nOs produtos vinculados ficarão sem grupo.`)) return;
+  try {
+    const r = await api.delete('/grupos/' + id);
+    toast(r.aviso || 'Grupo excluído.');
+    loadGrupos();
+    loadCategorias();
+  } catch (err) { toast(err.message, 'error'); }
 }
 
 async function loadProdutos() {
@@ -1889,7 +1994,7 @@ async function salvarProduto() {
   const id  = qsV('#mp-id');
   const ce  = document.getElementById('mp-controla-estoque').checked;
   const body = {
-    codigo:           qsV('#mp-cod').trim(),
+    codigo:           qsV('#mp-cod').trim() || null,
     descricao:        qsV('#mp-desc').trim(),
     categoria_id:     parseInt(qsV('#mp-cat'))||null,
     preco_custo:      parseFloat(qsV('#mp-custo'))||0,
@@ -1900,8 +2005,8 @@ async function salvarProduto() {
     controla_estoque: ce,
     foto:             mpFotoBase64 !== null ? mpFotoBase64 : undefined,
   };
-  if (!body.codigo || !body.descricao || !body.preco_venda) {
-    toast('Código, descrição e preço são obrigatórios.', 'error'); return;
+  if (!body.descricao || !body.preco_venda) {
+    toast('Descrição e preço são obrigatórios.', 'error'); return;
   }
   setBtnLoading('mp-btn-salvar', true);
   try {

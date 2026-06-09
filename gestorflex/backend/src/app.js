@@ -29,6 +29,7 @@ app.use('/api/relatorios',      require('./routes/relatorios'));
 app.use('/api/contas-receber', require('./routes/contas-receber'));
 app.use('/api/admin',          require('./routes/admin'));
 app.use('/api/cnpj',           require('./routes/cnpj'));
+app.use('/api/grupos',         require('./routes/grupos'));
 
 // ── Handler de erros ────────────────────────────────────────────
 app.use((err, req, res, _next) => {
