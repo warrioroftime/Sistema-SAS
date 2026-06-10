@@ -8,15 +8,25 @@ router.use(auth, adminOnly);
 
 // ── EMPRESAS ──────────────────────────────────────────────────────
 
+const STATUS_EMP = ['ativa', 'suspensa', 'bloqueada', 'cancelada'];
+const numOrNull = v => (v === '' || v === null || v === undefined ? null : parseInt(v));
+const dateOrNull = v => (v ? new Date(v) : null);
+
 // GET /api/admin/empresas
 router.get('/empresas', async (req, res) => {
   try {
     const r = await query(`
       SELECT e.id, e.razao_social, e.cnpj, e.email, e.telefone, e.ativo, e.criado_em,
+             e.plano, e.data_contratacao, e.data_vencimento, e.status,
+             e.limite_usuarios, e.limite_produtos, e.limite_clientes,
+             e.limite_armazenamento, e.trial_expira_em,
              COUNT(u.id) AS qtd_usuarios
       FROM Empresas e
       LEFT JOIN Usuarios u ON u.empresa_id = e.id
-      GROUP BY e.id, e.razao_social, e.cnpj, e.email, e.telefone, e.ativo, e.criado_em
+      GROUP BY e.id, e.razao_social, e.cnpj, e.email, e.telefone, e.ativo, e.criado_em,
+               e.plano, e.data_contratacao, e.data_vencimento, e.status,
+               e.limite_usuarios, e.limite_produtos, e.limite_clientes,
+               e.limite_armazenamento, e.trial_expira_em
       ORDER BY e.id DESC
     `);
     res.json(r.recordset);
@@ -29,14 +39,25 @@ router.get('/empresas', async (req, res) => {
 // POST /api/admin/empresas
 router.post('/empresas', async (req, res) => {
   try {
-    const { razao_social, cnpj, email, telefone } = req.body;
-    if (!razao_social) return res.status(400).json({ error: 'Razão social obrigatória.' });
+    const b = req.body;
+    if (!b.razao_social) return res.status(400).json({ error: 'Razão social obrigatória.' });
+    const status = STATUS_EMP.includes(b.status) ? b.status : 'ativa';
 
     const r = await query(`
-      INSERT INTO Empresas (razao_social, cnpj, email, telefone)
+      INSERT INTO Empresas
+        (razao_social, cnpj, email, telefone, plano, data_contratacao, data_vencimento,
+         status, ativo, limite_usuarios, limite_produtos, limite_clientes,
+         limite_armazenamento, trial_expira_em)
       OUTPUT INSERTED.id
-      VALUES (@razao_social, @cnpj, @email, @telefone)
-    `, { razao_social, cnpj: cnpj||null, email: email||null, telefone: telefone||null });
+      VALUES (@razao_social, @cnpj, @email, @telefone, @plano, @dc, @dv,
+              @status, @ativo, @lu, @lp, @lc, @larm, @trial)
+    `, {
+      razao_social: b.razao_social, cnpj: b.cnpj||null, email: b.email||null, telefone: b.telefone||null,
+      plano: (b.plano||'Gratuito'), dc: dateOrNull(b.data_contratacao), dv: dateOrNull(b.data_vencimento),
+      status, ativo: status === 'ativa' ? 1 : 0,
+      lu: numOrNull(b.limite_usuarios), lp: numOrNull(b.limite_produtos), lc: numOrNull(b.limite_clientes),
+      larm: numOrNull(b.limite_armazenamento), trial: dateOrNull(b.trial_expira_em),
+    });
 
     res.status(201).json({ id: r.recordset[0].id });
   } catch (err) {
@@ -48,14 +69,25 @@ router.post('/empresas', async (req, res) => {
 // PUT /api/admin/empresas/:id
 router.put('/empresas/:id', async (req, res) => {
   try {
-    const { razao_social, cnpj, email, telefone } = req.body;
-    if (!razao_social) return res.status(400).json({ error: 'Razão social obrigatória.' });
+    const b = req.body;
+    if (!b.razao_social) return res.status(400).json({ error: 'Razão social obrigatória.' });
+    const status = STATUS_EMP.includes(b.status) ? b.status : 'ativa';
 
     await query(`
       UPDATE Empresas
-      SET razao_social=@razao_social, cnpj=@cnpj, email=@email, telefone=@telefone
+      SET razao_social=@razao_social, cnpj=@cnpj, email=@email, telefone=@telefone,
+          plano=@plano, data_contratacao=@dc, data_vencimento=@dv, status=@status,
+          ativo=@ativo, limite_usuarios=@lu, limite_produtos=@lp, limite_clientes=@lc,
+          limite_armazenamento=@larm, trial_expira_em=@trial
       WHERE id=@id
-    `, { razao_social, cnpj: cnpj||null, email: email||null, telefone: telefone||null, id: parseInt(req.params.id) });
+    `, {
+      razao_social: b.razao_social, cnpj: b.cnpj||null, email: b.email||null, telefone: b.telefone||null,
+      plano: (b.plano||'Gratuito'), dc: dateOrNull(b.data_contratacao), dv: dateOrNull(b.data_vencimento),
+      status, ativo: status === 'ativa' ? 1 : 0,
+      lu: numOrNull(b.limite_usuarios), lp: numOrNull(b.limite_produtos), lc: numOrNull(b.limite_clientes),
+      larm: numOrNull(b.limite_armazenamento), trial: dateOrNull(b.trial_expira_em),
+      id: parseInt(req.params.id),
+    });
 
     res.json({ ok: true });
   } catch (err) {
@@ -64,11 +96,14 @@ router.put('/empresas/:id', async (req, res) => {
   }
 });
 
-// PATCH /api/admin/empresas/:id/toggle
+// PATCH /api/admin/empresas/:id/toggle — alterna ativa/suspensa
 router.patch('/empresas/:id/toggle', async (req, res) => {
   try {
     await query(`
-      UPDATE Empresas SET ativo = CASE WHEN ativo=1 THEN 0 ELSE 1 END WHERE id=@id
+      UPDATE Empresas
+      SET ativo  = CASE WHEN ativo=1 THEN 0 ELSE 1 END,
+          status = CASE WHEN ativo=1 THEN 'suspensa' ELSE 'ativa' END
+      WHERE id=@id
     `, { id: parseInt(req.params.id) });
     res.json({ ok: true });
   } catch (err) {

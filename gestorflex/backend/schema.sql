@@ -26,6 +26,17 @@ CREATE TABLE Empresas (
     email         NVARCHAR(150),
     telefone      NVARCHAR(20),
     ativo         BIT NOT NULL DEFAULT 1,
+    -- Configurações de SaaS
+    plano                NVARCHAR(40) NOT NULL DEFAULT 'Gratuito',
+    data_contratacao     DATE NULL,
+    data_vencimento      DATE NULL,
+    status               NVARCHAR(12) NOT NULL DEFAULT 'ativa'
+                         CHECK (status IN ('ativa','suspensa','bloqueada','cancelada')),
+    limite_usuarios      INT NULL,
+    limite_produtos      INT NULL,
+    limite_clientes      INT NULL,
+    limite_armazenamento INT NULL,            -- em MB
+    trial_expira_em      DATE NULL,
     criado_em     DATETIME2 NOT NULL DEFAULT GETDATE()
 );
 GO
