@@ -1,0 +1,53 @@
+# GestorFlex completo em Docker (banco + API + site).
+#   ./instalar.sh        (recomendado)
+#   ou: docker compose up -d --build
+#
+# Acesso:  Site http://localhost:5500   |   API http://localhost:3001
+# Em ARM (Apple Silicon) troque a imagem do db por mcr.microsoft.com/azure-sql-edge:latest
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: gestorflex-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "GestorFlex!2026"   # mesma senha usada pelo backend abaixo
+      MSSQL_PID: "Express"
+    ports:
+      - "1433:1433"
+    volumes:
+      - gestorflex-data:/var/opt/mssql
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: gestorflex-api
+    environment:
+      PORT: "3001"
+      DB_DRIVER: "tedious"
+      DB_SERVER: "db"
+      DB_PORT: "1433"
+      DB_NAME: "GestorFlex"
+      DB_USER: "sa"
+      DB_PASSWORD: "GestorFlex!2026"
+      DB_ENCRYPT: "false"
+      DB_TRUST_CERT: "true"
+      JWT_SECRET: "troque-este-segredo-em-producao-por-algo-aleatorio"
+      JWT_EXPIRES_IN: "8h"
+      CORS_ORIGIN: "*"
+    ports:
+      - "3001:3001"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: gestorflex-web
+    ports:
+      - "5500:5500"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  gestorflex-data:

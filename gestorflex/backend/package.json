@@ -5,7 +5,8 @@
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
-    "dev": "node --watch src/app.js"
+    "dev": "node --watch src/app.js",
+    "setup:db": "node setup-db.js"
   },
   "keywords": [],
   "author": "",
@@ -17,7 +18,9 @@
     "express": "^5.2.1",
     "express-validator": "^7.3.2",
     "jsonwebtoken": "^9.0.3",
-    "msnodesqlv8": "^5.2.0",
     "mssql": "^12.5.5"
+  },
+  "optionalDependencies": {
+    "msnodesqlv8": "^5.2.0"
   }
 }

@@ -2023,7 +2023,10 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
 <!-- ── SCRIPTS ─────────────────────────────────────────────────── -->
 <script>
 // ── Config API ────────────────────────────────────────────────────
-window.GF_API_URL = 'http://localhost:3001/api'; // ← altere para produção
+// Usa o mesmo host de onde o site foi aberto (localhost ou IP do servidor), porta 3001.
+window.GF_API_URL = location.hostname
+  ? `${location.protocol}//${location.hostname}:3001/api`
+  : 'http://localhost:3001/api';
 
 // ── Token / Auth state ────────────────────────────────────────────
 const Auth = {
