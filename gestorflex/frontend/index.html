@@ -15,6 +15,11 @@
 <!-- AOS -->
 <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css">
 <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+<!-- Relatórios: gráficos e exportação -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
 /* ═══════════════════════════════════════════════════════════════
    GestorFlex — Design System v2  (Glass · Dark Mode · Gradients)
@@ -1341,15 +1346,17 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
     <div id="page-relatorios" class="page">
       <div class="page-header">
         <div><div class="page-title"><i class="fa-solid fa-chart-bar"></i>Relatórios</div><div class="page-sub"><i class="bi bi-graph-up-arrow"></i> Análises gerenciais</div></div>
-        <div style="display:flex;gap:8px;align-items:center">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <input type="date" class="form-input" id="r-de" style="width:140px">
           <input type="date" class="form-input" id="r-ate" style="width:140px">
           <button class="btn btn-primary" onclick="loadRelatorios()"><i class="fa-solid fa-play"></i> Gerar</button>
+          <button class="btn btn-secondary" onclick="exportRelatorioExcel()" title="Exportar para Excel"><i class="fa-solid fa-file-excel" style="color:var(--green)"></i> Excel</button>
+          <button class="btn btn-secondary" onclick="exportRelatorioPDF()" title="Exportar para PDF"><i class="fa-solid fa-file-pdf" style="color:var(--red)"></i> PDF</button>
         </div>
       </div>
       <div class="grid-2">
-        <div class="card"><div class="section-title"><i class="fa-solid fa-credit-card" style="color:var(--purple);margin-right:6px"></i>Vendas por Pagamento</div><div id="r-pgto" class="chart-bar-container"></div></div>
-        <div class="card"><div class="section-title"><i class="fa-solid fa-trophy" style="color:var(--amber);margin-right:6px"></i>Top 5 Produtos</div><div id="r-top" class="chart-bar-container"></div></div>
+        <div class="card"><div class="section-title"><i class="fa-solid fa-credit-card" style="color:var(--purple);margin-right:6px"></i>Vendas por Pagamento</div><div style="height:260px;position:relative"><canvas id="r-pgto-chart"></canvas></div></div>
+        <div class="card"><div class="section-title"><i class="fa-solid fa-trophy" style="color:var(--amber);margin-right:6px"></i>Top 5 Produtos</div><div style="height:260px;position:relative"><canvas id="r-top-chart"></canvas></div></div>
       </div>
       <div class="card mt-16"><div class="section-title"><i class="fa-solid fa-coins" style="color:var(--green);margin-right:6px"></i>Resumo Financeiro</div><div class="grid-4" id="r-resumo"></div></div>
       <div class="card mt-16">
@@ -3964,6 +3971,18 @@ async function crConfirmarLancamento() {
 }
 
 // ── RELATÓRIOS ────────────────────────────────────────────────────
+let relatorioData = null;          // último relatório carregado (p/ exportar)
+let chartPgto = null, chartTop = null;
+const CHART_CORES = ['#2563eb','#7c3aed','#16a34a','#d97706','#dc2626','#0891b2','#db2777','#65a30d'];
+
+function chartTema() {
+  const cs = getComputedStyle(document.body);
+  return {
+    texto: cs.getPropertyValue('--text2').trim() || '#64748b',
+    grid:  cs.getPropertyValue('--border').trim() || 'rgba(0,0,0,.08)',
+  };
+}
+
 async function loadRelatorios() {
   const now = new Date();
   const de30 = new Date(now); de30.setDate(de30.getDate()-30);
@@ -3973,28 +3992,45 @@ async function loadRelatorios() {
   const params = new URLSearchParams({ de: qsV('#r-de'), ate: qsV('#r-ate') });
   try {
     const r = await api.get('/relatorios/vendas?' + params);
+    relatorioData = { ...r, periodo: { de: qsV('#r-de'), ate: qsV('#r-ate') } };
+    const tema = chartTema();
 
-    // Pagamentos
-    const maxP = Math.max(...(r.por_pagamento||[]).map(p=>p.total), 1);
-    document.getElementById('r-pgto').innerHTML = (r.por_pagamento||[]).length
-      ? r.por_pagamento.map(p => `
-          <div class="chart-bar-row">
-            <div class="chart-bar-label">${p.pagamento}</div>
-            <div class="chart-bar-track"><div class="chart-bar-fill" style="width:${(p.total/maxP*100).toFixed(0)}%;background:var(--purple)"></div></div>
-            <div class="chart-bar-val">${R(p.total)}</div>
-          </div>`).join('')
-      : '<div class="c-text3 fs-13">Sem dados</div>';
+    // Gráfico: Vendas por pagamento (rosca)
+    const pgto = r.por_pagamento || [];
+    if (chartPgto) chartPgto.destroy();
+    chartPgto = new Chart(document.getElementById('r-pgto-chart'), {
+      type: 'doughnut',
+      data: {
+        labels: pgto.map(p => p.pagamento),
+        datasets: [{ data: pgto.map(p => p.total), backgroundColor: CHART_CORES, borderWidth: 0 }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '58%',
+        plugins: {
+          legend: { position: 'bottom', labels: { color: tema.texto, padding: 12, font: { size: 12 } } },
+          tooltip: { callbacks: { label: c => `${c.label}: ${R(c.parsed)}` } },
+        },
+      },
+    });
 
-    // Top produtos
-    const maxT = Math.max(...(r.top_produtos||[]).map(p=>p.qtd_vendida), 1);
-    document.getElementById('r-top').innerHTML = (r.top_produtos||[]).length
-      ? r.top_produtos.map(p => `
-          <div class="chart-bar-row">
-            <div class="chart-bar-label" title="${p.descricao}">${p.descricao.substring(0,14)}</div>
-            <div class="chart-bar-track"><div class="chart-bar-fill" style="width:${(p.qtd_vendida/maxT*100).toFixed(0)}%;background:var(--blue)"></div></div>
-            <div class="chart-bar-val">${p.qtd_vendida} un.</div>
-          </div>`).join('')
-      : '<div class="c-text3 fs-13">Sem dados</div>';
+    // Gráfico: Top produtos (barras horizontais)
+    const top = r.top_produtos || [];
+    if (chartTop) chartTop.destroy();
+    chartTop = new Chart(document.getElementById('r-top-chart'), {
+      type: 'bar',
+      data: {
+        labels: top.map(p => p.descricao),
+        datasets: [{ label: 'Qtd. vendida', data: top.map(p => p.qtd_vendida), backgroundColor: '#2563eb', borderRadius: 6 }],
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.parsed.x} un.` } } },
+        scales: {
+          x: { ticks: { color: tema.texto }, grid: { color: tema.grid } },
+          y: { ticks: { color: tema.texto }, grid: { display: false } },
+        },
+      },
+    });
 
     // Resumo
     const res = r.resumo || {};
@@ -4014,6 +4050,90 @@ async function loadRelatorios() {
       : '<tr><td colspan="3" class="text-center" style="padding:20px;color:var(--text3)">Sem dados no período</td></tr>';
 
   } catch (err) { toast(err.message,'error'); }
+}
+
+function relatorioPeriodoTxt() {
+  const p = relatorioData?.periodo || {};
+  const f = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+  return `${f(p.de)} a ${f(p.ate)}`;
+}
+
+// ── Exportar relatório para Excel (SheetJS) ───────────────────────
+function exportRelatorioExcel() {
+  if (!relatorioData) { toast('Gere o relatório primeiro.', 'warning'); return; }
+  const r = relatorioData, res = r.resumo || {};
+  const wb = XLSX.utils.book_new();
+
+  const resumo = [
+    ['Relatório de Vendas'], ['Período', relatorioPeriodoTxt()], [],
+    ['Faturamento', res.faturamento || 0],
+    ['Qtd. Vendas', res.qtd_vendas || 0],
+    ['Ticket Médio', res.ticket_medio || 0],
+    ['Descontos', res.total_descontos || 0],
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumo), 'Resumo');
+
+  const pgto = [['Forma de Pagamento', 'Qtd', 'Total'],
+    ...(r.por_pagamento||[]).map(p => [p.pagamento, p.qtd ?? '', p.total])];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(pgto), 'Por Pagamento');
+
+  const top = [['Produto', 'Qtd Vendida'],
+    ...(r.top_produtos||[]).map(p => [p.descricao, p.qtd_vendida])];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(top), 'Top Produtos');
+
+  const ext = [['Data', 'Qtd Vendas', 'Total'],
+    ...(r.extrato||[]).map(e => [new Date(e.data).toLocaleDateString('pt-BR'), e.qtd_vendas, e.total])];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ext), 'Extrato Diário');
+
+  XLSX.writeFile(wb, `relatorio-vendas_${r.periodo.de}_a_${r.periodo.ate}.xlsx`);
+  toast('Excel exportado!', 'success');
+}
+
+// ── Exportar relatório para PDF (jsPDF + autotable) ───────────────
+function exportRelatorioPDF() {
+  if (!relatorioData) { toast('Gere o relatório primeiro.', 'warning'); return; }
+  const r = relatorioData, res = r.resumo || {};
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const empresa = (Auth.getUser && Auth.getUser()?.empresa_nome) || 'GestorFlex';
+
+  doc.setFontSize(16); doc.text('Relatório de Vendas', 14, 18);
+  doc.setFontSize(10); doc.setTextColor(110);
+  doc.text(empresa, 14, 25);
+  doc.text('Período: ' + relatorioPeriodoTxt(), 14, 31);
+
+  doc.autoTable({
+    startY: 38,
+    head: [['Faturamento', 'Qtd. Vendas', 'Ticket Médio', 'Descontos']],
+    body: [[R(res.faturamento), res.qtd_vendas || 0, R(res.ticket_medio), R(res.total_descontos)]],
+    theme: 'grid', headStyles: { fillColor: [37, 99, 235] },
+  });
+
+  doc.autoTable({
+    startY: doc.lastAutoTable.finalY + 8,
+    head: [['Forma de Pagamento', 'Qtd', 'Total']],
+    body: (r.por_pagamento||[]).map(p => [p.pagamento, p.qtd ?? '-', R(p.total)]),
+    theme: 'striped', headStyles: { fillColor: [124, 58, 237] },
+  });
+
+  doc.autoTable({
+    startY: doc.lastAutoTable.finalY + 8,
+    head: [['Top Produtos', 'Qtd Vendida']],
+    body: (r.top_produtos||[]).map(p => [p.descricao, p.qtd_vendida]),
+    theme: 'striped', headStyles: { fillColor: [217, 119, 6] },
+  });
+
+  doc.autoTable({
+    startY: doc.lastAutoTable.finalY + 8,
+    head: [['Data', 'Qtd Vendas', 'Total']],
+    body: (r.extrato||[]).map(e => [new Date(e.data).toLocaleDateString('pt-BR'), e.qtd_vendas, R(e.total)]),
+    theme: 'striped', headStyles: { fillColor: [22, 163, 74] },
+  });
+
+  doc.setFontSize(8); doc.setTextColor(150);
+  doc.text('Emitido em ' + new Date().toLocaleString('pt-BR'), 14, doc.internal.pageSize.height - 8);
+  doc.save(`relatorio-vendas_${r.periodo.de}_a_${r.periodo.ate}.pdf`);
+  toast('PDF exportado!', 'success');
 }
 
 // ── ADMIN: EMPRESAS ───────────────────────────────────────────────
