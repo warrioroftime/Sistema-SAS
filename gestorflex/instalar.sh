@@ -38,12 +38,27 @@ ensure_curl() {
 # ── instala o Docker ──────────────────────────────────────────
 install_docker() {
   echo "▶ Docker não encontrado. Instalando..."
-  # 1) script oficial (cobre Ubuntu/Debian/Fedora/CentOS/RHEL/SLES...)
+  # 1) script oficial (cobre a maioria; pode adicionar o repo mesmo se a etapa final falhar)
   if curl -fsSL https://get.docker.com -o /tmp/get-docker.sh 2>/dev/null; then
-    if $SUDO sh /tmp/get-docker.sh; then return 0; fi
+    $SUDO sh /tmp/get-docker.sh || true
   fi
-  # 2) fallback por gerenciador de pacotes (ex.: Arch, Alpine)
-  if   command -v pacman >/dev/null 2>&1; then $SUDO pacman -Sy --noconfirm docker docker-compose && return 0
+  command -v docker >/dev/null 2>&1 && return 0
+
+  # 2) fallback por gerenciador de pacotes
+  if command -v apt-get >/dev/null 2>&1; then
+    $SUDO apt-get update -y || true
+    # repo oficial já costuma estar configurado pelo passo 1 (sem o docker-model-plugin que falta em distros antigas)
+    $SUDO apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin && return 0
+    # senão, pacotes do próprio Ubuntu/Debian
+    $SUDO apt-get install -y docker.io docker-compose-v2 && return 0
+    $SUDO apt-get install -y docker.io docker-compose && return 0
+    $SUDO apt-get install -y docker.io && return 0
+  elif command -v dnf >/dev/null 2>&1; then
+    $SUDO dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin && return 0
+    $SUDO dnf install -y docker docker-compose && return 0
+  elif command -v yum >/dev/null 2>&1; then
+    $SUDO yum install -y docker docker-compose && return 0
+  elif command -v pacman >/dev/null 2>&1; then $SUDO pacman -Sy --noconfirm docker docker-compose && return 0
   elif command -v apk    >/dev/null 2>&1; then $SUDO apk add --no-cache docker docker-cli-compose && return 0
   elif command -v zypper >/dev/null 2>&1; then $SUDO zypper install -y docker docker-compose && return 0
   fi
