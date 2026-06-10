@@ -570,51 +570,101 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
   .page-title{font-size:18px}
   table.table{font-size:12px}
 }
+
+/* ── LOGIN REDESIGN (split-screen com foto do negócio) ── */
+#login-screen{display:flex;padding:0;align-items:stretch;background:#fff7ed}
+.ls-hero{position:relative;flex:1.05;min-width:0;display:flex;flex-direction:column;justify-content:space-between;
+  padding:50px 54px;color:#fff;overflow:hidden;
+  background:
+    linear-gradient(135deg,rgba(234,88,12,.84) 0%,rgba(194,65,12,.80) 55%,rgba(124,45,18,.90) 100%),
+    url('https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1400&q=80');
+  background-size:cover;background-position:center}
+.ls-hero .ls-orb{opacity:.5}
+.ls-hero-top{display:flex;align-items:center;gap:14px;position:relative;z-index:2}
+.ls-hero-logo{width:54px;height:54px;border-radius:16px;background:rgba(255,255,255,.18);backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.32);display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff;
+  box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.ls-hero-name{font-size:24px;font-weight:800;letter-spacing:-.5px;line-height:1}
+.ls-hero-tag{font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:.6px;margin-top:4px}
+.ls-hero-mid{position:relative;z-index:2;max-width:460px}
+.ls-hero-title{font-size:36px;font-weight:800;line-height:1.14;letter-spacing:-.9px;margin-bottom:16px;text-shadow:0 2px 18px rgba(0,0,0,.25)}
+.ls-hero-sub{font-size:15.5px;opacity:.94;line-height:1.65;text-shadow:0 1px 10px rgba(0,0,0,.2)}
+.ls-feats{position:relative;z-index:2;display:flex;flex-direction:column;gap:13px}
+.ls-feat{display:flex;align-items:center;gap:13px;font-size:14.5px;font-weight:500;text-shadow:0 1px 8px rgba(0,0,0,.2)}
+.ls-feat i{width:36px;height:36px;border-radius:11px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.28);
+  display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;backdrop-filter:blur(6px)}
+.ls-form-side{flex:.95;display:flex;align-items:center;justify-content:center;padding:28px;background:#fff7ed}
+.ls-form-side .login-card{max-width:410px;background:#fff;border:1px solid #f3e3d2;box-shadow:0 24px 70px rgba(124,45,18,.16)}
+/* Em telas largas, evita marca duplicada (já aparece no hero) */
+@media (min-width:901px){ .ls-form-side .lc-brand, .ls-form-side .lc-sep{display:none} }
+@media (max-width:900px){
+  .ls-hero{display:none}
+  .ls-form-side{flex:1;padding:18px}
+}
 </style>
 </head>
 <body>
 
 <!-- ── LOGIN ──────────────────────────────────────────────────── -->
 <div id="login-screen">
-  <div class="ls-orb ls-orb1"></div>
-  <div class="ls-orb ls-orb2"></div>
-  <div class="ls-orb ls-orb3"></div>
-  <div class="ls-orb ls-orb4"></div>
-  <div class="ls-grid"></div>
-  <div class="login-card animate__animated animate__fadeInUp" style="animation-duration:.5s">
-    <div class="lc-brand">
-      <div class="lc-brand-icon"><i class="fa-solid fa-bolt"></i></div>
+  <!-- Painel hero com foto do negócio -->
+  <div class="ls-hero">
+    <div class="ls-orb ls-orb1"></div>
+    <div class="ls-hero-top">
+      <div class="ls-hero-logo"><i class="fa-solid fa-bolt"></i></div>
       <div>
-        <div class="lc-brand-name">GestorFlex</div>
-        <div class="lc-brand-tag">Gestão Empresarial</div>
+        <div class="ls-hero-name">GestorFlex</div>
+        <div class="ls-hero-tag">Gestão Empresarial</div>
       </div>
     </div>
-    <div class="lc-sep"></div>
-    <div class="lc-hello">Bem-vindo de volta!</div>
-    <div class="lc-hello-sub">Informe suas credenciais para continuar</div>
-    <div id="login-error"></div>
-    <div class="form-group">
-      <label class="form-label">E-mail</label>
-      <div class="lc-field">
-        <i class="fa-regular fa-envelope lc-field-icon"></i>
-        <input class="form-input lc-input" id="login-email" type="email" placeholder="seu@email.com" autocomplete="email">
-      </div>
+    <div class="ls-hero-mid">
+      <div class="ls-hero-title">Do estoque ao caixa,<br>tudo sob controle.</div>
+      <div class="ls-hero-sub">PDV, estoque, clientes, contas a receber e relatórios — o seu comércio inteiro em um só sistema.</div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Senha</label>
-      <div class="lc-field">
-        <i class="fa-solid fa-lock lc-field-icon"></i>
-        <input class="form-input lc-input" id="login-senha" type="password" placeholder="••••••••" autocomplete="current-password">
-        <button type="button" class="lc-eye" onclick="lcToggleSenha(this)" tabindex="-1"><i class="fa-regular fa-eye"></i></button>
-      </div>
+    <div class="ls-feats">
+      <div class="ls-feat"><i class="fa-solid fa-store"></i> PDV ágil com leitor de código de barras</div>
+      <div class="ls-feat"><i class="fa-solid fa-boxes-stacked"></i> Controle de estoque em tempo real</div>
+      <div class="ls-feat"><i class="fa-solid fa-chart-line"></i> Relatórios e gráficos de vendas</div>
     </div>
-    <button class="btn lc-btn-login" id="login-btn" onclick="doLogin()">
-      <i class="fa-solid fa-right-to-bracket"></i><span style="margin-left:8px">Entrar no Sistema</span>
-    </button>
-    <p class="lc-demo">
-      <i class="bi bi-info-circle" style="opacity:.5"></i> Demo:
-      <span>admin@gestorflex.com</span> / <span>admin123</span>
-    </p>
+  </div>
+
+  <!-- Painel do formulário -->
+  <div class="ls-form-side">
+    <div class="login-card animate__animated animate__fadeInUp" style="animation-duration:.5s">
+      <div class="lc-brand">
+        <div class="lc-brand-icon"><i class="fa-solid fa-bolt"></i></div>
+        <div>
+          <div class="lc-brand-name">GestorFlex</div>
+          <div class="lc-brand-tag">Gestão Empresarial</div>
+        </div>
+      </div>
+      <div class="lc-sep"></div>
+      <div class="lc-hello">Bem-vindo de volta! 👋</div>
+      <div class="lc-hello-sub">Informe suas credenciais para continuar</div>
+      <div id="login-error"></div>
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <div class="lc-field">
+          <i class="fa-regular fa-envelope lc-field-icon"></i>
+          <input class="form-input lc-input" id="login-email" type="email" placeholder="seu@email.com" autocomplete="email">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <div class="lc-field">
+          <i class="fa-solid fa-lock lc-field-icon"></i>
+          <input class="form-input lc-input" id="login-senha" type="password" placeholder="••••••••" autocomplete="current-password">
+          <button type="button" class="lc-eye" onclick="lcToggleSenha(this)" tabindex="-1"><i class="fa-regular fa-eye"></i></button>
+        </div>
+      </div>
+      <button class="btn lc-btn-login" id="login-btn" onclick="doLogin()">
+        <i class="fa-solid fa-right-to-bracket"></i><span style="margin-left:8px">Entrar no Sistema</span>
+      </button>
+      <p class="lc-demo">
+        <i class="bi bi-info-circle" style="opacity:.5"></i> Demo:
+        <span>admin@gestorflex.com</span> / <span>admin123</span>
+      </p>
+    </div>
   </div>
 </div>
 
@@ -3165,7 +3215,8 @@ function pdvAdd(id, desc, preco, estoqueMax) {
     ex.qty++;
     ex.sub = +(ex.preco * ex.qty).toFixed(2);
   } else {
-    pdvCart.push({ id, desc, preco: +preco, qty: 1, sub: +preco, estoqueMax: +estoqueMax });
+    const prod = pdvProdutosAll.find(p => Number(p.id) === Number(id));
+    pdvCart.push({ id, desc, preco: +preco, qty: 1, sub: +preco, estoqueMax: +estoqueMax, foto: prod?.foto || null });
   }
   pdvRenderCart();
 }
@@ -3199,7 +3250,7 @@ function pdvRenderCart() {
   } else {
     el.innerHTML = pdvCart.map((it, i) => `
       <div class="pdv-cart-item">
-        <div class="pdv-cart-icon">${it.desc.charAt(0)}</div>
+        <div class="pdv-cart-icon"${it.foto ? ' style="padding:0;overflow:hidden;background:none;box-shadow:none"' : ''}>${it.foto ? `<img src="${it.foto}" style="width:100%;height:100%;object-fit:cover" alt="">` : it.desc.charAt(0)}</div>
         <div class="pdv-cart-info">
           <div class="pdv-cart-name" title="${it.desc}">${it.desc}</div>
           <div class="pdv-cart-unit">${R(it.preco)} / un.</div>
