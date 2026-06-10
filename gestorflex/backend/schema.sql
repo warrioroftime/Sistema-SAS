@@ -215,21 +215,60 @@ GO
 -- ----------------------------------------------------------------
 IF OBJECT_ID('ContasReceber') IS NULL
 CREATE TABLE ContasReceber (
+    id                INT IDENTITY(1,1) PRIMARY KEY,
+    empresa_id        INT NOT NULL REFERENCES Empresas(id),
+    venda_id          INT REFERENCES Vendas(id),
+    cliente_id        INT REFERENCES Clientes(id),
+    numero_documento  NVARCHAR(40) NULL,
+    parcela_num       INT NOT NULL DEFAULT 1,
+    parcelas_total    INT NOT NULL DEFAULT 1,
+    valor             DECIMAL(15,2) NOT NULL,              -- valor original da parcela
+    juros             DECIMAL(15,2) NOT NULL DEFAULT 0,    -- acumulado dos recebimentos
+    multa             DECIMAL(15,2) NOT NULL DEFAULT 0,
+    desconto          DECIMAL(15,2) NOT NULL DEFAULT 0,
+    acrescimo         DECIMAL(15,2) NOT NULL DEFAULT 0,
+    data_emissao      DATETIME2 NULL,
+    data_vencimento   DATETIME2 NULL,
+    status            NVARCHAR(20) NOT NULL DEFAULT 'pendente'
+                      CHECK (status IN ('pendente','parcial','recebido','cancelado','renegociado')),
+    data_recebimento  DATETIME2 NULL,
+    valor_recebido    DECIMAL(15,2) NULL,                  -- total recebido acumulado
+    lancamento_manual BIT NOT NULL DEFAULT 0,
+    observacao        NVARCHAR(500) NULL,
+    criado_por        INT NULL,
+    alterado_por      INT NULL,
+    alterado_em       DATETIME2 NULL,
+    criado_em         DATETIME2 NOT NULL DEFAULT GETDATE()
+);
+GO
+
+-- Recebimentos (baixas individuais) de cada título — total/parcial, com forma de pgto e operador
+IF OBJECT_ID('RecebimentosContas') IS NULL
+CREATE TABLE RecebimentosContas (
     id               INT IDENTITY(1,1) PRIMARY KEY,
     empresa_id       INT NOT NULL REFERENCES Empresas(id),
-    venda_id         INT REFERENCES Vendas(id),
-    cliente_id       INT REFERENCES Clientes(id),
-    parcela_num      INT NOT NULL DEFAULT 1,
-    parcelas_total   INT NOT NULL DEFAULT 1,
-    valor            DECIMAL(15,2) NOT NULL,
-    data_vencimento  DATETIME2 NULL,
-    status           NVARCHAR(20) NOT NULL DEFAULT 'pendente'
-                     CHECK (status IN ('pendente','recebido','cancelado')),
-    data_recebimento DATETIME2 NULL,
-    valor_recebido   DECIMAL(15,2) NULL,
+    conta_id         INT NOT NULL REFERENCES ContasReceber(id),
+    valor_principal  DECIMAL(15,2) NOT NULL DEFAULT 0,   -- abatido da dívida
+    juros            DECIMAL(15,2) NOT NULL DEFAULT 0,
+    multa            DECIMAL(15,2) NOT NULL DEFAULT 0,
+    desconto         DECIMAL(15,2) NOT NULL DEFAULT 0,
+    acrescimo        DECIMAL(15,2) NOT NULL DEFAULT 0,
+    valor_recebido   DECIMAL(15,2) NOT NULL DEFAULT 0,   -- dinheiro que entrou
+    forma_pagamento  NVARCHAR(20) NOT NULL DEFAULT 'dinheiro',
+    data_recebimento DATETIME2 NOT NULL DEFAULT GETDATE(),
+    usuario_id       INT REFERENCES Usuarios(id),        -- operador que recebeu
+    caixa_id         INT NULL,                           -- turno de caixa vinculado
     observacao       NVARCHAR(500) NULL,
+    estornado        BIT NOT NULL DEFAULT 0,
+    estornado_por    INT NULL,
+    estornado_em     DATETIME2 NULL,
     criado_em        DATETIME2 NOT NULL DEFAULT GETDATE()
 );
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_RecebimentosContas_conta')
+  CREATE INDEX IX_RecebimentosContas_conta ON RecebimentosContas(conta_id);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_RecebimentosContas_caixa')
+  CREATE INDEX IX_RecebimentosContas_caixa ON RecebimentosContas(caixa_id, forma_pagamento);
 GO
 
 -- ----------------------------------------------------------------

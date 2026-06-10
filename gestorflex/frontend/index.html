@@ -473,7 +473,12 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
 .cr-badge-pen{background:var(--amber-light);color:var(--amber);border:1px solid var(--amber);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
 .cr-badge-rec{background:var(--green-light);color:var(--green);border:1px solid var(--green);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
 .cr-badge-can{background:var(--surface2);color:var(--text3);border:1px solid var(--border);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
+.cr-badge-parcial{background:var(--blue-light);color:var(--blue);border:1px solid var(--blue);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
+.cr-badge-venc{background:var(--red-light);color:var(--red);border:1px solid var(--red);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
+.cr-badge-reneg{background:var(--purple-light,#efe9ff);color:var(--purple,#7c3aed);border:1px solid var(--purple,#7c3aed);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
 .cr-venc-atrasado{color:var(--red);font-weight:600}
+.rec-line{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.rec-line:last-child{border-bottom:none}
 
 /* ── Animate.css tweaks ── */
 .animate__animated{animation-duration:.5s}
@@ -1036,24 +1041,25 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
           <div class="page-title"><i class="fa-solid fa-hand-holding-dollar"></i>Contas a Receber</div>
           <div class="page-sub"><i class="bi bi-cash-coin"></i> Controle de vendas a prazo (fiado)</div>
         </div>
+        <button class="btn btn-primary" onclick="crAbrirLancamento()"><i class="fa-solid fa-plus"></i> Novo lançamento</button>
       </div>
 
       <!-- Resumo -->
       <div class="cr-summary">
         <div class="cr-card">
-          <div class="cr-card-label"><i class="fa-solid fa-clock" style="color:var(--amber)"></i> Pendente</div>
+          <div class="cr-card-label"><i class="fa-solid fa-clock" style="color:var(--amber)"></i> A Receber (em aberto)</div>
           <div class="cr-card-value c-amber" id="cr-total-pen">R$ 0,00</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:4px" id="cr-qtd-pen">0 cobranças</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px" id="cr-qtd-pen">0 títulos</div>
         </div>
         <div class="cr-card">
           <div class="cr-card-label"><i class="fa-solid fa-circle-check" style="color:var(--green)"></i> Recebido</div>
           <div class="cr-card-value c-green" id="cr-total-rec">R$ 0,00</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:4px" id="cr-qtd-rec">0 cobranças</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px" id="cr-qtd-rec">0 quitados</div>
         </div>
         <div class="cr-card">
-          <div class="cr-card-label"><i class="fa-solid fa-triangle-exclamation" style="color:var(--red)"></i> Atrasadas</div>
+          <div class="cr-card-label"><i class="fa-solid fa-triangle-exclamation" style="color:var(--red)"></i> Vencido</div>
           <div class="cr-card-value c-red" id="cr-total-atr">R$ 0,00</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:4px" id="cr-qtd-atr">0 vencidas</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px" id="cr-qtd-atr">0 vencidos</div>
         </div>
       </div>
 
@@ -1062,13 +1068,21 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
         <select id="cr-f-status" onchange="loadContasReceber()">
           <option value="">Todos os status</option>
           <option value="pendente" selected>Pendentes</option>
+          <option value="parcial">Parcialmente recebidos</option>
+          <option value="vencido">Vencidos</option>
           <option value="recebido">Recebidos</option>
+          <option value="renegociado">Renegociados</option>
+          <option value="cancelado">Cancelados</option>
         </select>
-        <input type="date" id="cr-f-de" onchange="loadContasReceber()" placeholder="De">
-        <input type="date" id="cr-f-ate" onchange="loadContasReceber()" placeholder="Até">
-        <input type="text" id="cr-f-busca" placeholder="Buscar cliente..." oninput="loadContasReceber()" style="min-width:180px">
+        <input type="date" id="cr-f-de" onchange="loadContasReceber()" placeholder="Venc. de">
+        <input type="date" id="cr-f-ate" onchange="loadContasReceber()" placeholder="Venc. até">
+        <input type="text" id="cr-f-busca" placeholder="Cliente ou CPF/CNPJ..." oninput="loadContasReceber()" style="min-width:170px">
+        <input type="text" id="cr-f-doc" placeholder="Nº documento" oninput="loadContasReceber()" style="min-width:120px">
         <button class="btn btn-secondary btn-sm" onclick="crLimparFiltros()">
           <i class="fa-solid fa-filter-circle-xmark"></i> Limpar
+        </button>
+        <button class="btn btn-primary btn-sm" id="cr-btn-lote" style="display:none" onclick="crAbrirLote()">
+          <i class="fa-solid fa-layer-group"></i> Receber selecionados (<span id="cr-lote-count">0</span>)
         </button>
       </div>
 
@@ -1078,18 +1092,19 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
           <table class="table">
             <thead>
               <tr>
-                <th>#</th>
+                <th style="width:34px"><input type="checkbox" id="cr-check-all" onclick="crToggleAll(this)"></th>
+                <th>Documento</th>
                 <th>Cliente</th>
-                <th>Data Venda</th>
+                <th class="text-center">Parcela</th>
                 <th>Vencimento</th>
                 <th class="text-right">Valor</th>
+                <th class="text-right">Em aberto</th>
                 <th class="text-center">Status</th>
-                <th>Recebido em</th>
                 <th class="text-center">Ações</th>
               </tr>
             </thead>
             <tbody id="cr-tbody">
-              <tr class="loading-row"><td colspan="8"><div class="spinner"></div></td></tr>
+              <tr class="loading-row"><td colspan="9"><div class="spinner"></div></td></tr>
             </tbody>
           </table>
         </div>
@@ -1098,35 +1113,170 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
 
     <!-- Modal Receber -->
     <div class="modal-backdrop" id="modal-receber" onclick="if(event.target===this)closeModal('modal-receber')">
-      <div class="modal" style="max-width:400px">
+      <div class="modal" style="max-width:440px">
         <div class="modal-header">
           <div class="modal-title"><i class="fa-solid fa-hand-holding-dollar" style="margin-right:8px;color:var(--green)"></i>Registrar Recebimento</div>
           <button class="btn-icon" onclick="closeModal('modal-receber')">✕</button>
         </div>
         <div class="modal-body">
           <input type="hidden" id="rec-venda-id">
-          <div class="form-group">
-            <label class="form-label">Cliente</label>
-            <div id="rec-cliente" style="font-weight:600;font-size:14px;padding:8px 0"></div>
+          <div class="flex flex-between" style="margin-bottom:10px">
+            <div>
+              <div id="rec-cliente" style="font-weight:700;font-size:14px"></div>
+              <div id="rec-doc" class="fs-12 c-text3"></div>
+            </div>
+            <div style="text-align:right">
+              <div class="fs-12 c-text3">Em aberto</div>
+              <div id="rec-valor-orig" style="font-size:20px;font-weight:800;color:var(--blue)"></div>
+            </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Valor Original</label>
-            <div id="rec-valor-orig" style="font-size:20px;font-weight:800;color:var(--blue)"></div>
+            <label class="form-label">Valor do principal a abater (R$) *</label>
+            <input class="form-input" type="number" id="rec-valor" min="0" step="0.01" placeholder="0,00" oninput="recCalcTotal()">
+          </div>
+          <div class="grid-2" style="gap:10px">
+            <div class="form-group">
+              <label class="form-label">Juros (R$)</label>
+              <input class="form-input" type="number" id="rec-juros" min="0" step="0.01" value="0" oninput="recCalcTotal()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Multa (R$)</label>
+              <input class="form-input" type="number" id="rec-multa" min="0" step="0.01" value="0" oninput="recCalcTotal()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Desconto (R$)</label>
+              <input class="form-input" type="number" id="rec-desc" min="0" step="0.01" value="0" oninput="recCalcTotal()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Acréscimo (R$)</label>
+              <input class="form-input" type="number" id="rec-acres" min="0" step="0.01" value="0" oninput="recCalcTotal()">
+            </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Valor Recebido (R$)</label>
-            <input class="form-input" type="number" id="rec-valor" min="0" step="0.01" placeholder="0,00">
+            <label class="form-label">Forma de pagamento</label>
+            <select class="form-input" id="rec-forma">
+              <option value="dinheiro">Dinheiro</option>
+              <option value="pix">PIX</option>
+              <option value="debito">Cartão de débito</option>
+              <option value="credito">Cartão de crédito</option>
+              <option value="transferencia">Transferência</option>
+              <option value="boleto">Boleto</option>
+              <option value="cheque">Cheque</option>
+            </select>
           </div>
           <div class="form-group">
             <label class="form-label">Observação (opcional)</label>
             <input class="form-input" id="rec-obs" placeholder="Ex: pago via PIX">
           </div>
+          <div class="pdv-total-final" style="margin-top:4px"><span>TOTAL RECEBIDO</span><span id="rec-total">R$ 0,00</span></div>
+          <div class="fs-12 c-text3 mt-8" id="rec-caixa-hint"><i class="fa-solid fa-circle-info"></i> Recebimentos em dinheiro entram automaticamente no caixa aberto.</div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" onclick="closeModal('modal-receber')">Cancelar</button>
           <button class="btn btn-primary" id="rec-btn-confirm" onclick="crConfirmarRecebimento()">
             <i class="fa-solid fa-circle-check"></i> Confirmar Recebimento
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Detalhe / Histórico do título -->
+    <div class="modal-backdrop" id="modal-cr-det" onclick="if(event.target===this)closeModal('modal-cr-det')">
+      <div class="modal" style="max-width:520px">
+        <div class="modal-header">
+          <div class="modal-title"><i class="fa-solid fa-receipt" style="margin-right:8px;color:var(--blue)"></i>Detalhes do Título</div>
+          <button class="btn-icon" onclick="closeModal('modal-cr-det')">✕</button>
+        </div>
+        <div class="modal-body" id="cr-det-body"></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="crImprimirRecibo()"><i class="fa-solid fa-print"></i> 2ª via recibo</button>
+          <button class="btn btn-secondary" onclick="closeModal('modal-cr-det')">Fechar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Recebimento em Lote -->
+    <div class="modal-backdrop" id="modal-cr-lote" onclick="if(event.target===this)closeModal('modal-cr-lote')">
+      <div class="modal" style="max-width:400px">
+        <div class="modal-header">
+          <div class="modal-title"><i class="fa-solid fa-layer-group" style="margin-right:8px;color:var(--green)"></i>Recebimento em Lote</div>
+          <button class="btn-icon" onclick="closeModal('modal-cr-lote')">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info" style="display:flex"><i class="fa-solid fa-circle-info"></i> <span id="cr-lote-info"></span></div>
+          <div class="form-group">
+            <label class="form-label">Forma de pagamento</label>
+            <select class="form-input" id="cr-lote-forma">
+              <option value="dinheiro">Dinheiro</option>
+              <option value="pix">PIX</option>
+              <option value="debito">Cartão de débito</option>
+              <option value="credito">Cartão de crédito</option>
+              <option value="transferencia">Transferência</option>
+              <option value="boleto">Boleto</option>
+              <option value="cheque">Cheque</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Observação (opcional)</label>
+            <input class="form-input" id="cr-lote-obs" placeholder="Ex: acerto geral do cliente">
+          </div>
+          <div class="fs-12 c-text3">Cada título será baixado pelo valor total em aberto.</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('modal-cr-lote')">Cancelar</button>
+          <button class="btn btn-primary" id="cr-lote-btn" onclick="crConfirmarLote()"><i class="fa-solid fa-circle-check"></i> Confirmar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Lançamento Manual -->
+    <div class="modal-backdrop" id="modal-cr-lanc" onclick="if(event.target===this)closeModal('modal-cr-lanc')">
+      <div class="modal" style="max-width:460px">
+        <div class="modal-header">
+          <div class="modal-title"><i class="fa-solid fa-file-circle-plus" style="margin-right:8px;color:var(--blue)"></i>Novo Lançamento Manual</div>
+          <button class="btn-icon" onclick="closeModal('modal-cr-lanc')">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Cliente (opcional)</label>
+            <div id="crl-cli-sel" style="display:none;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;background:var(--surface2);border-radius:8px;margin-bottom:6px">
+              <span class="fw-600 fs-13" id="crl-cli-nome"></span>
+              <button class="btn-icon" onclick="crlLimparCliente()" title="Remover">✕</button>
+            </div>
+            <input class="form-input" id="crl-cli-busca" placeholder="Buscar nome ou CPF/CNPJ..." oninput="debounce(crlBuscarCliente,350)()" autocomplete="off">
+            <div id="crl-cli-resultados"></div>
+          </div>
+          <div class="grid-2" style="gap:10px">
+            <div class="form-group">
+              <label class="form-label">Valor total (R$) *</label>
+              <input class="form-input" type="number" id="crl-valor" min="0" step="0.01" placeholder="0,00" oninput="crlPreview()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nº de parcelas</label>
+              <input class="form-input" type="number" id="crl-parcelas" min="1" step="1" value="1" oninput="crlPreview()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Emissão</label>
+              <input class="form-input" type="date" id="crl-emissao">
+            </div>
+            <div class="form-group">
+              <label class="form-label">1º vencimento</label>
+              <input class="form-input" type="date" id="crl-vencimento">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nº documento (opcional)</label>
+            <input class="form-input" id="crl-doc" placeholder="Ex: NF 1234, contrato, etc.">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Observação (opcional)</label>
+            <input class="form-input" id="crl-obs" placeholder="Ex: acordo de pagamento">
+          </div>
+          <div class="fs-12 c-text3" id="crl-preview"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('modal-cr-lanc')">Cancelar</button>
+          <button class="btn btn-primary" id="crl-btn" onclick="crConfirmarLancamento()"><i class="fa-solid fa-circle-check"></i> Lançar</button>
         </div>
       </div>
     </div>
@@ -1318,9 +1468,15 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
       <div class="pdv-totals" style="margin-bottom:16px">
         <div class="pdv-total-row"><span class="c-text2">Troco inicial (abertura)</span><span class="fw-600" id="mcxf-abertura">R$ 0,00</span></div>
         <div class="pdv-total-row"><span class="c-text2">+ Vendas em dinheiro</span><span class="fw-600 c-green" id="mcxf-vendas">R$ 0,00</span></div>
+        <div class="pdv-total-row"><span class="c-text2">+ Recebimentos em dinheiro</span><span class="fw-600 c-green" id="mcxf-receb">R$ 0,00</span></div>
         <div class="pdv-total-row"><span class="c-text2">+ Suprimentos</span><span class="fw-600 c-green" id="mcxf-suprimentos">R$ 0,00</span></div>
         <div class="pdv-total-row"><span class="c-text2">− Sangrias</span><span class="fw-600 c-red" id="mcxf-sangrias">R$ 0,00</span></div>
         <div class="pdv-total-final"><span>ESPERADO EM CAIXA</span><span id="mcxf-esperado">R$ 0,00</span></div>
+      </div>
+      <div id="mcxf-outras-wrap" style="margin-bottom:16px;display:none">
+        <div class="fs-12 c-text3 fw-600" style="margin-bottom:8px"><i class="fa-solid fa-credit-card" style="margin-right:5px"></i> Outras formas de pagamento (não entram na gaveta)</div>
+        <div class="pdv-totals" id="mcxf-outras"></div>
+        <div class="pdv-total-row" style="margin-top:8px"><span class="c-text2 fw-600">Total geral vendido</span><span class="fw-700" id="mcxf-vendas-total">R$ 0,00</span></div>
       </div>
       <div class="form-group">
         <label class="form-label">Dinheiro contado na gaveta (R$) *</label>
@@ -2322,30 +2478,37 @@ async function buscarProduto(q) {
     const r = await api.get('/produtos?busca=' + encodeURIComponent(q) + '&status=ativo');
     el.innerHTML = r.data.length
       ? `<div style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-top:4px">${
-          r.data.slice(0,6).map(p => `
+          r.data.slice(0,6).map(p => {
+            const controla = !!p.controla_estoque;
+            const estTxt = !controla
+              ? '<span class="c-text3">Estoque livre</span>'
+              : `<span style="color:${p.estoque===0?'var(--red)':p.estoque<5?'var(--amber)':'var(--text3)'}">Estoque: ${p.estoque}</span>`;
+            return `
             <div style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;justify-content:space-between;align-items:center"
               onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='var(--surface)'"
-              onclick="adicionarCart(${p.id},'${p.descricao.replace(/'/g,"\\'")}',${p.preco_venda},${p.estoque},'${p.codigo}')">
+              onclick="adicionarCart(${p.id},'${p.descricao.replace(/'/g,"\\'")}',${p.preco_venda},${p.estoque},'${p.codigo}',${controla?1:0})">
               <div><strong>${p.descricao}</strong> <span class="c-text3">${p.codigo}</span></div>
               <div style="text-align:right;flex-shrink:0">
                 <div class="fw-600 c-green">${R(p.preco_venda)}</div>
-                <div class="fs-12" style="color:${p.estoque===0?'var(--red)':p.estoque<5?'var(--amber)':'var(--text3)'}">Estoque: ${p.estoque}</div>
+                <div class="fs-12">${estTxt}</div>
               </div>
-            </div>`).join('')
+            </div>`; }).join('')
         }</div>`
       : '<div class="fs-12 c-text3" style="padding:6px 0">Nenhum produto encontrado.</div>';
   } catch {}
 }
 
-function adicionarCart(id, desc, preco, estoque, cod) {
-  if (estoque === 0) { toast('Produto sem estoque!','error'); return; }
+function adicionarCart(id, desc, preco, estoque, cod, controla = 1) {
+  const controlaEstoque = controla === 1 || controla === true;
+  const max = controlaEstoque ? estoque : Infinity;
+  if (controlaEstoque && estoque <= 0) { toast('Produto sem estoque!','error'); return; }
   const ex = cart.find(c => c.id === id);
   if (ex) {
-    if (ex.qty >= estoque) { toast('Limite de estoque atingido!','error'); return; }
+    if (ex.qty >= max) { toast('Limite de estoque atingido!','error'); return; }
     ex.qty++;
     ex.subtotal = ex.preco * ex.qty;
   } else {
-    cart.push({ id, cod, desc, preco, qty: 1, subtotal: preco, estoqueMax: estoque });
+    cart.push({ id, cod, desc, preco, qty: 1, subtotal: preco, estoqueMax: max });
   }
   qs('#v-prod-busca').value = '';
   document.getElementById('v-prod-resultados').innerHTML = '';
@@ -3067,9 +3230,26 @@ function abrirModalFecharCaixa() {
   const r = caixaAtual.resumo;
   document.getElementById('mcxf-abertura').textContent    = R(r.valor_abertura);
   document.getElementById('mcxf-vendas').textContent      = R(r.vendas_dinheiro);
+  document.getElementById('mcxf-receb').textContent       = R(r.recebimentos_dinheiro || 0);
   document.getElementById('mcxf-suprimentos').textContent = R(r.suprimentos);
   document.getElementById('mcxf-sangrias').textContent    = R(r.sangrias);
   document.getElementById('mcxf-esperado').textContent    = R(r.esperado_dinheiro);
+
+  // Outras formas de pagamento (cartão, pix, etc.) — não entram na gaveta
+  const outras = (r.por_pagamento || []).filter(p => (p.pagamento || '').toLowerCase() !== 'dinheiro');
+  const wrap = document.getElementById('mcxf-outras-wrap');
+  if (outras.length) {
+    document.getElementById('mcxf-outras').innerHTML = outras.map(p => `
+      <div class="pdv-total-row">
+        <span class="c-text2" style="text-transform:capitalize">${p.pagamento} <span class="c-text3 fw-600" style="font-weight:400">(${p.qtd})</span></span>
+        <span class="fw-600">${R(p.total)}</span>
+      </div>`).join('');
+    document.getElementById('mcxf-vendas-total').textContent = R(r.vendas_total);
+    wrap.style.display = '';
+  } else {
+    wrap.style.display = 'none';
+  }
+
   document.getElementById('mcxf-informado').value = '';
   document.getElementById('mcxf-obs').value = '';
   document.getElementById('mcxf-dif').style.display = 'none';
@@ -3293,90 +3473,102 @@ function vendaPgtoChange(v) {
 
 // ── CONTAS A RECEBER ──────────────────────────────────────────────
 let crData = [];
+let crSel = new Set();         // ids selecionados para recebimento em lote
+let crDetAtual = null;         // título aberto no modal de detalhe
+
+const CR_FORMAS = { dinheiro:'Dinheiro', pix:'PIX', debito:'Cartão débito', credito:'Cartão crédito',
+                    transferencia:'Transferência', boleto:'Boleto', cheque:'Cheque', fiado:'Fiado' };
+
+function crStatusInfo(c) {
+  const aberto = (c.status === 'pendente' || c.status === 'parcial');
+  const vencido = aberto && (c.dias_atraso || 0) > 0;
+  if (c.status === 'recebido')    return { badge:'<span class="cr-badge-rec"><i class="fa-solid fa-check" style="margin-right:3px"></i>Recebido</span>' };
+  if (c.status === 'cancelado')   return { badge:'<span class="cr-badge-can">Cancelado</span>' };
+  if (c.status === 'renegociado') return { badge:'<span class="cr-badge-reneg">Renegociado</span>' };
+  if (vencido) return { badge:`<span class="cr-badge-venc"><i class="fa-solid fa-triangle-exclamation" style="margin-right:3px"></i>Vencido (${c.dias_atraso}d)</span>`, vencido:true, receivable:true };
+  if (c.status === 'parcial') return { badge:'<span class="cr-badge-parcial"><i class="fa-solid fa-hourglass-half" style="margin-right:3px"></i>Parcial</span>', receivable:true };
+  return { badge:'<span class="cr-badge-pen"><i class="fa-solid fa-clock" style="margin-right:3px"></i>Pendente</span>', receivable:true };
+}
 
 async function loadContasReceber() {
   const tbody = document.getElementById('cr-tbody');
-  tbody.innerHTML = '<tr class="loading-row"><td colspan="8"><div class="spinner"></div></td></tr>';
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="9"><div class="spinner"></div></td></tr>';
 
   const status = document.getElementById('cr-f-status')?.value || '';
   const de     = document.getElementById('cr-f-de')?.value || '';
   const ate    = document.getElementById('cr-f-ate')?.value || '';
-  const busca  = (document.getElementById('cr-f-busca')?.value || '').toLowerCase();
+  const busca  = (document.getElementById('cr-f-busca')?.value || '').trim();
+  const doc    = (document.getElementById('cr-f-doc')?.value || '').trim();
 
   const params = new URLSearchParams();
   if (status) params.set('status', status);
   if (de)     params.set('de', de);
   if (ate)    params.set('ate', ate);
+  if (busca)  params.set('busca', busca);
+  if (doc)    params.set('documento', doc);
 
   try {
     const r = await api.get('/contas-receber?' + params);
     crData = r.data || [];
+    crSel.clear(); crUpdateLoteBtn();
+    const chkAll = document.getElementById('cr-check-all'); if (chkAll) chkAll.checked = false;
 
-    // filtro local por nome de cliente
-    const rows = busca
-      ? crData.filter(c => (c.cliente_nome || '').toLowerCase().includes(busca))
-      : crData;
-
-    // Calcular resumo geral (sem filtro de busca local para os cards)
-    document.getElementById('cr-total-pen').textContent = R(r.total_pendente || 0);
+    document.getElementById('cr-total-pen').textContent = R(r.total_aberto || 0);
     document.getElementById('cr-total-rec').textContent = R(r.total_recebido || 0);
+    document.getElementById('cr-total-atr').textContent = R(r.total_vencido || 0);
+    document.getElementById('cr-qtd-pen').textContent = (r.qtd_aberto||0)   + ' título'  + ((r.qtd_aberto||0)!==1?'s':'');
+    document.getElementById('cr-qtd-rec').textContent = (r.qtd_recebido||0) + ' quitado' + ((r.qtd_recebido||0)!==1?'s':'');
+    document.getElementById('cr-qtd-atr').textContent = (r.qtd_vencido||0)  + ' vencido' + ((r.qtd_vencido||0)!==1?'s':'');
 
-    const pendentes = crData.filter(c => c.status_cobranca === 'pendente');
-    const recebidos = crData.filter(c => c.status_cobranca === 'recebido');
-    document.getElementById('cr-qtd-pen').textContent = pendentes.length + ' cobrança' + (pendentes.length !== 1 ? 's' : '');
-    document.getElementById('cr-qtd-rec').textContent = recebidos.length + ' cobrança' + (recebidos.length !== 1 ? 's' : '');
-
-    const hoje = new Date(); hoje.setHours(0,0,0,0);
-    const atrasadas = pendentes.filter(c => c.data_vencimento && new Date(c.data_vencimento) < hoje);
-    const totalAtr  = atrasadas.reduce((s, c) => s + (c.valor || 0), 0);
-    document.getElementById('cr-total-atr').textContent = R(totalAtr);
-    document.getElementById('cr-qtd-atr').textContent = atrasadas.length + ' vencida' + (atrasadas.length !== 1 ? 's' : '');
-
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="text-center" style="padding:30px;color:var(--text3)"><i class="fa-solid fa-hand-holding-dollar" style="font-size:24px;display:block;margin-bottom:8px;opacity:.35"></i>Nenhum registro encontrado</td></tr>';
+    if (!crData.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="text-center" style="padding:30px;color:var(--text3)"><i class="fa-solid fa-hand-holding-dollar" style="font-size:24px;display:block;margin-bottom:8px;opacity:.35"></i>Nenhum registro encontrado</td></tr>';
       return;
     }
 
-    const hoje2 = new Date(); hoje2.setHours(0,0,0,0);
+    crData.forEach(c => { c.id = Number(c.id); });   // driver pode devolver id como string
 
-    tbody.innerHTML = rows.map(c => {
+    tbody.innerHTML = crData.map(c => {
       const venc = c.data_vencimento ? new Date(c.data_vencimento) : null;
-      const atrasado = c.status_cobranca === 'pendente' && venc && venc < hoje2;
+      const si = crStatusInfo(c);
       const vencTxt = venc
-        ? `<span class="${atrasado ? 'cr-venc-atrasado' : ''}">${venc.toLocaleDateString('pt-BR')}${atrasado ? ' <i class="fa-solid fa-circle-exclamation" title="Vencida"></i>' : ''}</span>`
+        ? `<span class="${si.vencido ? 'cr-venc-atrasado' : ''}">${venc.toLocaleDateString('pt-BR')}</span>`
         : '<span style="color:var(--text3)">—</span>';
 
-      let badge = '';
-      if (c.status_cobranca === 'pendente')  badge = '<span class="cr-badge-pen"><i class="fa-solid fa-clock" style="margin-right:3px"></i>Pendente</span>';
-      else if (c.status_cobranca === 'recebido') badge = '<span class="cr-badge-rec"><i class="fa-solid fa-check" style="margin-right:3px"></i>Recebido</span>';
-      else badge = '<span class="cr-badge-can">Cancelado</span>';
+      const check = si.receivable
+        ? `<input type="checkbox" class="cr-row-check" ${crSel.has(c.id)?'checked':''} onclick="crToggleSel(${c.id},this)">`
+        : '';
 
-      const acoes = c.status_cobranca === 'pendente'
+      const acoes = si.receivable
         ? `<div style="display:flex;gap:4px;justify-content:center">
-            <button class="btn btn-sm" style="background:var(--green-light);color:var(--green);border:none;font-size:11px" onclick="crAbrirReceber(${c.id})">
-              <i class="fa-solid fa-circle-dollar-to-slot"></i> Receber
-            </button>
+            <button class="btn btn-sm" style="background:var(--green-light);color:var(--green);border:none;font-size:11px" onclick="crAbrirReceber(${c.id})" title="Receber"><i class="fa-solid fa-circle-dollar-to-slot"></i></button>
+            <button class="btn btn-sm btn-secondary" style="font-size:11px" onclick="crAbrirDetalhe(${c.id})" title="Detalhes"><i class="fa-solid fa-eye"></i></button>
+            <button class="btn btn-sm" style="background:var(--surface2);color:var(--red);border:none;font-size:11px" onclick="crCancelar(${c.id})" title="Cancelar"><i class="fa-solid fa-ban"></i></button>
            </div>`
-        : `<div style="text-align:center;font-size:11px;color:var(--text3)">${c.data_recebimento ? fmtD(c.data_recebimento) : '—'}</div>`;
+        : `<div style="display:flex;gap:4px;justify-content:center">
+            <button class="btn btn-sm btn-secondary" style="font-size:11px" onclick="crAbrirDetalhe(${c.id})" title="Detalhes"><i class="fa-solid fa-eye"></i></button>
+           </div>`;
+
+      const parcInfo = c.parcelas_total > 1 ? `${c.parcela_num}/${c.parcelas_total}` : '<span class="c-text3">única</span>';
 
       return `<tr>
-        <td class="fw-600 c-text3">#${c.id}</td>
+        <td class="text-center">${check}</td>
+        <td class="fs-12"><span class="fw-600">${c.numero_documento || ('#'+c.id)}</span><div class="fs-12 c-text3">${fmtD(c.data_emissao || c.criado_em)}</div></td>
         <td>
           <div class="fw-600">${c.cliente_nome || '<span style="color:var(--text3)">—</span>'}</div>
-          ${c.cliente_tel ? `<div style="font-size:11px;color:var(--text3)">${c.cliente_tel}</div>` : ''}
+          ${c.cliente_doc ? `<div style="font-size:11px;color:var(--text3)">${c.cliente_doc}</div>` : ''}
         </td>
-        <td class="fs-12 c-text3">${fmtD(c.criado_em)}</td>
+        <td class="text-center fs-12">${parcInfo}</td>
         <td>${vencTxt}</td>
-        <td class="text-right fw-600 c-blue">${R(c.valor)}</td>
-        <td class="text-center">${badge}</td>
-        <td class="fs-12 c-text3">${c.data_recebimento ? fmtD(c.data_recebimento) : '—'}</td>
+        <td class="text-right fw-600">${R(c.valor)}</td>
+        <td class="text-right fw-700 ${c.valor_aberto > 0.005 ? 'c-amber':'c-green'}">${R(c.valor_aberto)}</td>
+        <td class="text-center">${si.badge}</td>
         <td>${acoes}</td>
       </tr>`;
     }).join('');
 
   } catch (err) {
     toast(err.message, 'error');
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center" style="padding:20px;color:var(--red)">' + err.message + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center" style="padding:20px;color:var(--red)">' + err.message + '</td></tr>';
   }
 }
 
@@ -3385,32 +3577,102 @@ function crLimparFiltros() {
   document.getElementById('cr-f-de').value = '';
   document.getElementById('cr-f-ate').value = '';
   document.getElementById('cr-f-busca').value = '';
+  document.getElementById('cr-f-doc').value = '';
   loadContasReceber();
 }
 
+// ── Seleção / lote (só permite o MESMO cliente) ───────────────────
+const crCliKey = c => (c.cliente_id == null ? 'sem' : Number(c.cliente_id));
+function crSelClienteKey() {
+  for (const id of crSel) { const c = crData.find(x => x.id === id); if (c) return crCliKey(c); }
+  return null;
+}
+function crToggleSel(id, el) {
+  const item = crData.find(c => c.id === id);
+  if (el.checked) {
+    const atual = crSelClienteKey();
+    if (atual !== null && crCliKey(item) !== atual) {
+      el.checked = false;
+      toast('Só é possível receber em lote parcelas do mesmo cliente.', 'error');
+      return;
+    }
+    crSel.add(id);
+  } else {
+    crSel.delete(id);
+  }
+  crUpdateLoteBtn();
+}
+function crToggleAll(el) {
+  crSel.clear();
+  if (el.checked) {
+    // seleciona apenas as parcelas recebíveis do 1º cliente recebível encontrado
+    const primeiro = crData.find(c => crStatusInfo(c).receivable);
+    const key = primeiro ? crCliKey(primeiro) : null;
+    let pulou = false;
+    crData.forEach(c => {
+      if (!crStatusInfo(c).receivable) return;
+      if (crCliKey(c) === key) crSel.add(c.id); else pulou = true;
+    });
+    if (pulou) toast('Selecionadas apenas as parcelas do mesmo cliente. Há outros clientes na lista.', 'warning');
+  }
+  crSyncChecks();
+  crUpdateLoteBtn();
+}
+function crSyncChecks() {
+  document.querySelectorAll('tr').forEach(tr => {
+    const cb = tr.querySelector('.cr-row-check');
+    if (!cb) return;
+    const m = cb.getAttribute('onclick')?.match(/crToggleSel\((\d+)/);
+    if (m) cb.checked = crSel.has(Number(m[1]));
+  });
+}
+function crUpdateLoteBtn() {
+  const btn = document.getElementById('cr-btn-lote');
+  document.getElementById('cr-lote-count').textContent = crSel.size;
+  btn.style.display = crSel.size ? 'inline-flex' : 'none';
+}
+
+// ── Recebimento individual ────────────────────────────────────────
 function crAbrirReceber(id) {
   const item = crData.find(c => c.id === id);
   if (!item) return;
   document.getElementById('rec-venda-id').value = id;
   document.getElementById('rec-cliente').textContent = item.cliente_nome || 'Cliente não informado';
-  document.getElementById('rec-valor-orig').textContent = R(item.valor);
-  document.getElementById('rec-valor').value = item.valor;
+  document.getElementById('rec-doc').textContent = item.numero_documento ? ('Doc: ' + item.numero_documento) : '';
+  document.getElementById('rec-valor-orig').textContent = R(item.valor_aberto);
+  document.getElementById('rec-valor').value = (+item.valor_aberto).toFixed(2);
+  ['rec-juros','rec-multa','rec-desc','rec-acres'].forEach(i => document.getElementById(i).value = '0');
+  document.getElementById('rec-forma').value = 'dinheiro';
   document.getElementById('rec-obs').value = '';
+  recCalcTotal();
   openModal('modal-receber');
 }
 
-async function crConfirmarRecebimento() {
-  const id     = parseInt(document.getElementById('rec-venda-id').value);
-  const valor  = parseFloat(document.getElementById('rec-valor').value) || 0;
-  const obs    = document.getElementById('rec-obs').value.trim();
-  const btn    = document.getElementById('rec-btn-confirm');
+function recCalcTotal() {
+  const v = id => parseFloat(document.getElementById(id).value) || 0;
+  const total = v('rec-valor') + v('rec-juros') + v('rec-multa') + v('rec-acres') - v('rec-desc');
+  document.getElementById('rec-total').textContent = R(Math.max(total, 0));
+}
 
-  if (!valor) { toast('Informe o valor recebido.', 'error'); return; }
+async function crConfirmarRecebimento() {
+  const id    = parseInt(document.getElementById('rec-venda-id').value);
+  const v     = id2 => parseFloat(document.getElementById(id2).value) || 0;
+  const valor = v('rec-valor');
+  const btn   = document.getElementById('rec-btn-confirm');
+  if (!valor) { toast('Informe o valor do principal.', 'error'); return; }
 
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px"></div> Confirmando...';
   try {
-    await api.put(`/contas-receber/${id}/receber`, { valor_recebido: valor, observacao: obs || null });
+    await api.post(`/contas-receber/${id}/receber`, {
+      valor_principal:  valor,
+      juros:            v('rec-juros'),
+      multa:            v('rec-multa'),
+      desconto:         v('rec-desc'),
+      acrescimo:        v('rec-acres'),
+      forma_pagamento:  document.getElementById('rec-forma').value,
+      observacao:       document.getElementById('rec-obs').value.trim() || null,
+    });
     toast('Recebimento registrado com sucesso!', 'success');
     closeModal('modal-receber');
     loadContasReceber();
@@ -3419,6 +3681,217 @@ async function crConfirmarRecebimento() {
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Confirmar Recebimento';
+  }
+}
+
+// ── Detalhe / histórico ───────────────────────────────────────────
+async function crAbrirDetalhe(id) {
+  const body = document.getElementById('cr-det-body');
+  body.innerHTML = '<div class="spinner"></div>';
+  openModal('modal-cr-det');
+  try {
+    const d = await api.get('/contas-receber/' + id);
+    crDetAtual = d;
+    const t = d.titulo;
+    const si = crStatusInfo({ status: t.status, dias_atraso: 0 });
+    const recsAtivos = d.recebimentos.filter(r => !r.estornado);
+    const recsHtml = d.recebimentos.length
+      ? d.recebimentos.map(r => `
+        <div class="rec-line" style="${r.estornado?'opacity:.5;text-decoration:line-through':''}">
+          <div>
+            <div class="fw-600">${R(r.valor_recebido)} <span class="c-text3 fw-600" style="font-weight:400">· ${CR_FORMAS[r.forma_pagamento]||r.forma_pagamento}</span></div>
+            <div class="fs-12 c-text3">${fmtDt(r.data_recebimento)} · ${r.operador||'—'}${(r.juros||r.multa||r.desconto||r.acrescimo)?` · principal ${R(r.valor_principal)}`:''}</div>
+            ${r.observacao?`<div class="fs-12 c-text3">${r.observacao}</div>`:''}
+          </div>
+          ${r.estornado
+            ? '<span class="fs-12 c-text3">estornado</span>'
+            : `<button class="btn btn-sm btn-secondary" style="font-size:11px" onclick="crEstornar(${r.id})"><i class="fa-solid fa-rotate-left"></i> Estornar</button>`}
+        </div>`).join('')
+      : '<div class="c-text3 fs-13" style="padding:8px 0">Nenhum recebimento registrado.</div>';
+
+    body.innerHTML = `
+      <div class="flex flex-between" style="margin-bottom:12px">
+        <div>
+          <div class="fw-700" style="font-size:15px">${t.cliente_nome||'Cliente não informado'}</div>
+          <div class="fs-12 c-text3">${t.cliente_doc||''} ${t.cliente_tel?('· '+t.cliente_tel):''}</div>
+        </div>
+        <div>${si.badge}</div>
+      </div>
+      <div class="pdv-totals" style="margin-bottom:14px">
+        <div class="pdv-total-row"><span class="c-text2">Documento</span><span class="fw-600">${t.numero_documento||('#'+t.id)}</span></div>
+        <div class="pdv-total-row"><span class="c-text2">Parcela</span><span class="fw-600">${t.parcelas_total>1?`${t.parcela_num}/${t.parcelas_total}`:'única'}</span></div>
+        <div class="pdv-total-row"><span class="c-text2">Emissão</span><span class="fw-600">${t.data_emissao?fmtD(t.data_emissao):'—'}</span></div>
+        <div class="pdv-total-row"><span class="c-text2">Vencimento</span><span class="fw-600">${t.data_vencimento?fmtD(t.data_vencimento):'—'}</span></div>
+        <div class="pdv-total-row"><span class="c-text2">Valor original</span><span class="fw-600">${R(t.valor)}</span></div>
+        <div class="pdv-total-row"><span class="c-text2">Recebido</span><span class="fw-600 c-green">${R(t.valor_recebido||0)}</span></div>
+        <div class="pdv-total-final"><span>EM ABERTO</span><span>${R(t.valor_aberto)}</span></div>
+      </div>
+      <div class="section-title" style="font-size:13px"><i class="fa-solid fa-clock-rotate-left" style="margin-right:6px;color:var(--blue)"></i>Histórico de recebimentos (${recsAtivos.length})</div>
+      <div>${recsHtml}</div>`;
+  } catch (err) {
+    body.innerHTML = '<div class="c-text3" style="color:var(--red)">'+err.message+'</div>';
+  }
+}
+
+async function crEstornar(recId) {
+  if (!confirm('Estornar este recebimento? O valor volta a ficar em aberto e sai do caixa.')) return;
+  try {
+    await api.post(`/contas-receber/recebimentos/${recId}/estornar`, {});
+    toast('Recebimento estornado.', 'success');
+    if (crDetAtual) crAbrirDetalhe(crDetAtual.titulo.id);
+    loadContasReceber();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function crCancelar(id) {
+  if (!confirm('Cancelar este título? Ele não poderá mais receber.')) return;
+  try {
+    await api.put(`/contas-receber/${id}/cancelar`, {});
+    toast('Título cancelado.', 'success');
+    loadContasReceber();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+// ── Recebimento em lote ───────────────────────────────────────────
+function crAbrirLote() {
+  if (!crSel.size) return;
+  const itens = crData.filter(c => crSel.has(c.id));
+  const total = itens.reduce((s,c) => s + (c.valor_aberto||0), 0);
+  document.getElementById('cr-lote-info').textContent = `${crSel.size} título(s) selecionado(s) · total em aberto ${R(total)}`;
+  document.getElementById('cr-lote-forma').value = 'dinheiro';
+  document.getElementById('cr-lote-obs').value = '';
+  openModal('modal-cr-lote');
+}
+
+async function crConfirmarLote() {
+  const btn = document.getElementById('cr-lote-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px"></div> Confirmando...';
+  try {
+    const r = await api.post('/contas-receber/receber-lote', {
+      ids: [...crSel],
+      forma_pagamento: document.getElementById('cr-lote-forma').value,
+      observacao: document.getElementById('cr-lote-obs').value.trim() || null,
+    });
+    toast(`${r.recebidos} título(s) recebidos · ${R(r.total_recebido)}`, 'success');
+    closeModal('modal-cr-lote');
+    loadContasReceber();
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Confirmar';
+  }
+}
+
+// ── 2ª via de recibo (imprimível) ─────────────────────────────────
+function crImprimirRecibo() {
+  if (!crDetAtual) return;
+  const t = crDetAtual.titulo;
+  const recs = crDetAtual.recebimentos.filter(r => !r.estornado);
+  const emp = (Auth.getUser && Auth.getUser()?.empresa_nome) || 'GestorFlex';
+  const linhas = recs.map(r => `<tr><td>${fmtDt(r.data_recebimento)}</td><td>${CR_FORMAS[r.forma_pagamento]||r.forma_pagamento}</td><td>${r.operador||'—'}</td><td style="text-align:right">${R(r.valor_recebido)}</td></tr>`).join('');
+  const totalRec = recs.reduce((s,r)=>s+(r.valor_recebido||0),0);
+  const win = window.open('', '_blank', 'width=480,height=640');
+  win.document.write(`<html><head><title>Recibo ${t.numero_documento||('#'+t.id)}</title>
+    <style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h2{margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}td,th{padding:6px;border-bottom:1px solid #ddd;text-align:left}.tot{font-weight:700;font-size:15px;margin-top:12px;text-align:right}</style></head><body>
+    <h2>${emp}</h2><div style="color:#666;font-size:13px">Recibo de Recebimento</div><hr>
+    <div><b>Documento:</b> ${t.numero_documento||('#'+t.id)}</div>
+    <div><b>Cliente:</b> ${t.cliente_nome||'—'} ${t.cliente_doc?('('+t.cliente_doc+')'):''}</div>
+    <div><b>Valor do título:</b> ${R(t.valor)} · <b>Em aberto:</b> ${R(t.valor_aberto)}</div>
+    <table><thead><tr><th>Data</th><th>Forma</th><th>Operador</th><th style="text-align:right">Valor</th></tr></thead><tbody>${linhas||'<tr><td colspan=4>Sem recebimentos</td></tr>'}</tbody></table>
+    <div class="tot">Total recebido: ${R(totalRec)}</div>
+    <div style="margin-top:40px;font-size:12px;color:#666">Emitido em ${new Date().toLocaleString('pt-BR')}</div>
+    </body></html>`);
+  win.document.close(); win.focus(); win.print();
+}
+
+// ── Lançamento manual ─────────────────────────────────────────────
+let crlCliente = null;
+
+function crAbrirLancamento() {
+  crlCliente = null;
+  crlLimparCliente();
+  document.getElementById('crl-cli-busca').value = '';
+  document.getElementById('crl-cli-resultados').innerHTML = '';
+  document.getElementById('crl-valor').value = '';
+  document.getElementById('crl-parcelas').value = '1';
+  document.getElementById('crl-doc').value = '';
+  document.getElementById('crl-obs').value = '';
+  const hoje = new Date().toISOString().split('T')[0];
+  const venc = new Date(Date.now() + 30*86400000).toISOString().split('T')[0];
+  document.getElementById('crl-emissao').value = hoje;
+  document.getElementById('crl-vencimento').value = venc;
+  document.getElementById('crl-preview').textContent = '';
+  openModal('modal-cr-lanc');
+}
+
+async function crlBuscarCliente() {
+  const q = document.getElementById('crl-cli-busca').value.trim();
+  const el = document.getElementById('crl-cli-resultados');
+  if (!q || q.length < 2) { el.innerHTML = ''; return; }
+  try {
+    const r = await api.get('/clientes?busca=' + encodeURIComponent(q));
+    if (!r.data.length) { el.innerHTML = '<div class="fs-12 c-text3" style="padding:6px 0">Nenhum cliente encontrado.</div>'; return; }
+    el.innerHTML = `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:4px">
+      ${r.data.slice(0,6).map(c => {
+        const nome = (c.nome||'').replace(/'/g,'&#39;');
+        const doc  = (c.documento||'').replace(/'/g,'&#39;');
+        return `<div style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+          onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='var(--surface)'"
+          onclick="crlSelecionarCliente(${c.id},'${nome}','${doc}')">
+          <strong>${c.nome}</strong><span class="c-text3" style="margin-left:8px">${c.documento||''}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  } catch {}
+}
+
+function crlSelecionarCliente(id, nome, doc) {
+  crlCliente = { id, nome, doc };
+  document.getElementById('crl-cli-nome').textContent = `${nome}${doc ? ' — ' + doc : ''}`;
+  document.getElementById('crl-cli-sel').style.display = 'flex';
+  document.getElementById('crl-cli-busca').value = '';
+  document.getElementById('crl-cli-resultados').innerHTML = '';
+}
+
+function crlLimparCliente() {
+  crlCliente = null;
+  document.getElementById('crl-cli-sel').style.display = 'none';
+}
+
+function crlPreview() {
+  const valor = parseFloat(document.getElementById('crl-valor').value) || 0;
+  const parc  = Math.max(parseInt(document.getElementById('crl-parcelas').value) || 1, 1);
+  const el = document.getElementById('crl-preview');
+  if (valor <= 0) { el.textContent = ''; return; }
+  el.innerHTML = `<i class="fa-solid fa-circle-info"></i> ${parc}x de ${R(+(valor/parc).toFixed(2))} (mensais)`;
+}
+
+async function crConfirmarLancamento() {
+  const valor = parseFloat(document.getElementById('crl-valor').value) || 0;
+  if (valor <= 0) { toast('Informe um valor maior que zero.', 'error'); return; }
+  const btn = document.getElementById('crl-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin-right:6px"></div> Lançando...';
+  try {
+    const r = await api.post('/contas-receber', {
+      cliente_id:      crlCliente?.id || null,
+      valor_total:     valor,
+      parcelas:        Math.max(parseInt(document.getElementById('crl-parcelas').value) || 1, 1),
+      data_emissao:    document.getElementById('crl-emissao').value || null,
+      data_vencimento: document.getElementById('crl-vencimento').value || null,
+      numero_documento: document.getElementById('crl-doc').value.trim() || null,
+      observacao:      document.getElementById('crl-obs').value.trim() || null,
+    });
+    toast(`Lançamento criado (${r.parcelas} parcela${r.parcelas>1?'s':''}).`, 'success');
+    closeModal('modal-cr-lanc');
+    loadContasReceber();
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Lançar';
   }
 }
 

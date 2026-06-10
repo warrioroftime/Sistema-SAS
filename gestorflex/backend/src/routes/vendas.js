@@ -218,11 +218,12 @@ router.post('/', auth, async (req, res) => {
         const valor = i === parcelas - 1
           ? +(total - valorParcela * (parcelas - 1)).toFixed(2)
           : valorParcela;
+        const numDoc = `V${vendaId}-${i+1}/${parcelas}`;
         await query(
-          `INSERT INTO ContasReceber (empresa_id,venda_id,cliente_id,parcela_num,parcelas_total,valor,data_vencimento,status,observacao)
-           VALUES (@emp,@vid,@cid,@pn,@pt,@val,@dvenc,'pendente',@obs)`,
-          { emp: req.user.empresa_id, vid: vendaId, cid: cliente_id||null,
-            pn: i+1, pt: parcelas, val: valor, dvenc: venc, obs: observacao||null }
+          `INSERT INTO ContasReceber (empresa_id,venda_id,cliente_id,numero_documento,parcela_num,parcelas_total,valor,data_emissao,data_vencimento,status,observacao,criado_por)
+           VALUES (@emp,@vid,@cid,@ndoc,@pn,@pt,@val,GETDATE(),@dvenc,'pendente',@obs,@uid)`,
+          { emp: req.user.empresa_id, vid: vendaId, cid: cliente_id||null, ndoc: numDoc,
+            pn: i+1, pt: parcelas, val: valor, dvenc: venc, obs: observacao||null, uid: req.user.id }
         );
       }
     }

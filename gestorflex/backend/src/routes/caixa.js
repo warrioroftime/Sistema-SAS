@@ -43,11 +43,35 @@ async function resumoCaixa(caixaId, emp) {
     { id: caixaId }
   );
 
+  // Detalhamento das vendas por forma de pagamento
+  const porPgto = await query(
+    `SELECT COALESCE(fp.nome, 'outros') AS pagamento,
+            COUNT(*) AS qtd,
+            COALESCE(SUM(v.total),0) AS total
+     FROM Vendas v
+     LEFT JOIN FormasPagamento fp ON fp.id = v.forma_pagamento_id
+     WHERE v.caixa_id=@id
+     GROUP BY fp.nome
+     ORDER BY total DESC`,
+    { id: caixaId }
+  );
+
+  // Recebimentos de Contas a Receber lançados neste turno (entram no caixa)
+  const receb = await query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN forma_pagamento='dinheiro' THEN valor_recebido END),0) AS receb_dinheiro,
+       COALESCE(SUM(valor_recebido),0) AS receb_total,
+       COUNT(*) AS qtd_receb
+     FROM RecebimentosContas WHERE caixa_id=@id AND estornado=0`,
+    { id: caixaId }
+  );
+
   const abertura     = caixa.valor_abertura;
   const suprimentos  = tot.recordset[0].suprimentos;
   const sangrias     = tot.recordset[0].sangrias;
   const vendasDin    = vnd.recordset[0].vendas_dinheiro;
-  const esperado     = +(abertura + suprimentos - sangrias + vendasDin).toFixed(2);
+  const recebDin     = receb.recordset[0].receb_dinheiro;
+  const esperado     = +(abertura + suprimentos - sangrias + vendasDin + recebDin).toFixed(2);
 
   return {
     caixa,
@@ -59,7 +83,11 @@ async function resumoCaixa(caixaId, emp) {
       vendas_dinheiro:   vendasDin,
       vendas_total:      vnd.recordset[0].vendas_total,
       qtd_vendas:        vnd.recordset[0].qtd_vendas,
+      recebimentos_dinheiro: recebDin,
+      recebimentos_total:    receb.recordset[0].receb_total,
+      qtd_recebimentos:      receb.recordset[0].qtd_receb,
       esperado_dinheiro: esperado,
+      por_pagamento:     porPgto.recordset,
     },
   };
 }
