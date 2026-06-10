@@ -2,6 +2,7 @@
 const router = require('express').Router();
 const { query, sql } = require('../db');
 const { auth } = require('../middleware/auth');
+const { checarLimite, checarArmazenamento } = require('../lib/limites');
 
 const BASE = `
   SELECT p.id, p.codigo, p.descricao, c.nome AS categoria, p.categoria_id,
@@ -90,6 +91,9 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ error: 'Descrição e preço de venda são obrigatórios.' });
     }
 
+    await checarLimite(req.user.empresa_id, 'produtos');
+    if (foto) await checarArmazenamento(req.user.empresa_id, foto);
+
     codigo = codigo ? String(codigo).trim() : '';
 
     if (!codigo) {
@@ -144,6 +148,7 @@ router.post('/', auth, async (req, res) => {
     );
     res.status(201).json(prod.recordset[0]);
   } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar produto.' });
   }
@@ -162,6 +167,8 @@ router.put('/:id', auth, async (req, res) => {
       { id, emp: req.user.empresa_id }
     );
     if (!ex.recordset.length) return res.status(404).json({ error: 'Produto não encontrado.' });
+
+    if (foto) await checarArmazenamento(req.user.empresa_id, foto);
 
     // Código duplicado (exceto o próprio)
     if (codigo) {
@@ -201,6 +208,7 @@ router.put('/:id', auth, async (req, res) => {
     const prod = await query(BASE + ' AND p.id=@id', { emp: req.user.empresa_id, id });
     res.json(prod.recordset[0]);
   } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Erro ao atualizar produto.' });
   }

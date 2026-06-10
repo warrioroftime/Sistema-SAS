@@ -684,7 +684,7 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
     </div>
     <div class="nav-section" id="nav-admin" style="display:none">
       <div class="nav-label">Administração</div>
-      <a class="nav-item" href="javascript:void(0)" onclick="navigate('empresas')">
+      <a class="nav-item" id="nav-empresas-item" href="javascript:void(0)" onclick="navigate('empresas')">
         <i class="fa-solid fa-building"></i> Empresas
       </a>
       <a class="nav-item" href="javascript:void(0)" onclick="navigate('adm-usuarios')">
@@ -1931,7 +1931,7 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
           <button type="button" class="btn btn-sm" id="madmu-foto-remover" style="display:none;background:var(--red-light);color:var(--red);border:none;font-size:11px" onclick="madmuRemoverFoto()">Remover foto</button>
         </div>
       </div>
-      <div class="form-group"><label class="form-label">Empresa *</label><select class="form-select" id="madmu-emp"></select></div>
+      <div class="form-group" id="madmu-emp-field"><label class="form-label">Empresa *</label><select class="form-select" id="madmu-emp"></select></div>
       <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="madmu-nome" placeholder="Nome completo" oninput="madmuAtualizarInitials()"></div>
       <div class="form-row cols-2">
         <div class="form-group"><label class="form-label">E-mail *</label><input class="form-input" id="madmu-email" type="email"></div>
@@ -2108,6 +2108,9 @@ function applyUser(user) {
   document.getElementById('user-role').textContent   = user.perfil;
   document.getElementById('sidebar-empresa').textContent = user.empresa_nome || '—';
   document.getElementById('nav-admin').style.display = user.perfil === 'admin' ? 'block' : 'none';
+  // Aba Empresas só para a matriz (empresa 1)
+  const ehMatriz = Number(user.empresa_id) === 1;
+  document.getElementById('nav-empresas-item').style.display = ehMatriz ? 'flex' : 'none';
 }
 
 function doLogout() {
@@ -4572,7 +4575,7 @@ function abrirModalEmpresa(id) {
 async function editarEmpresa(id) {
   try {
     const data = await api.get('/admin/empresas');
-    const e = data.find(x => x.id === id);
+    const e = data.find(x => Number(x.id) === Number(id));
     if (!e) return;
     document.getElementById('memp-titulo').textContent = 'Editar Empresa';
     document.getElementById('memp-id').value   = e.id;
@@ -4637,9 +4640,22 @@ async function toggleEmpresa(id) {
 let _empresasAdm = [];
 
 async function loadEmpresasSelect() {
+  const user = Auth.getUser();
+  const ehMatriz = Number(user?.empresa_id) === 1;
+  const filtro = document.getElementById('admu-filtro-emp');
+  const empField = document.getElementById('madmu-emp-field');
+
+  // Admin-cliente: não lista empresas (sem permissão); usa a própria
+  if (!ehMatriz) {
+    if (filtro) filtro.style.display = 'none';
+    if (empField) empField.style.display = 'none';
+    const empSel = document.getElementById('madmu-emp');
+    if (empSel) empSel.innerHTML = `<option value="${user.empresa_id}">${user.empresa_nome||'Minha empresa'}</option>`;
+    return;
+  }
+
   try {
     _empresasAdm = await api.get('/admin/empresas');
-    const filtro = document.getElementById('admu-filtro-emp');
     const cur = filtro.value;
     filtro.innerHTML = '<option value="">Todas as empresas</option>' +
       _empresasAdm.map(e => `<option value="${e.id}"${cur==e.id?' selected':''}>${e.razao_social}</option>`).join('');

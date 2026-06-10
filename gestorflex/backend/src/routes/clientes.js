@@ -2,6 +2,7 @@
 const router = require('express').Router();
 const { query } = require('../db');
 const { auth } = require('../middleware/auth');
+const { checarLimite } = require('../lib/limites');
 
 const BASE = `
   SELECT id, nome, nome_fantasia, documento, telefone, email,
@@ -120,6 +121,8 @@ router.post('/', auth, async (req, res) => {
             cep, endereco, numero, bairro, cidade, estado } = req.body;
     if (!nome) return res.status(400).json({ error: 'Nome obrigatório.' });
 
+    await checarLimite(req.user.empresa_id, 'clientes');
+
     const r = await query(`
       INSERT INTO Clientes
         (empresa_id, nome, nome_fantasia, documento, telefone, email,
@@ -138,6 +141,7 @@ router.post('/', auth, async (req, res) => {
     const novo = await query(BASE + ' AND id=@id', { emp: req.user.empresa_id, id });
     res.status(201).json({ ...novo.recordset[0], qtd_compras: 0, total_gasto: 0 });
   } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar cliente.' });
   }

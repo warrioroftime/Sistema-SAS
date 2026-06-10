@@ -23,4 +23,13 @@ function adminOnly(req, res, next) {
   next();
 }
 
-module.exports = { auth, adminOnly };
+// Apenas a matriz (empresa 1) pode gerenciar empresas (tenants)
+const MATRIZ_ID = 1;
+function matrizOnly(req, res, next) {
+  if (Number(req.user.empresa_id) !== MATRIZ_ID) {
+    return res.status(403).json({ error: 'Acesso restrito à empresa matriz.' });
+  }
+  next();
+}
+
+module.exports = { auth, adminOnly, matrizOnly, MATRIZ_ID };
