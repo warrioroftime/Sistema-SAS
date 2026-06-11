@@ -52,7 +52,7 @@ CREATE TABLE Usuarios (
     email        NVARCHAR(150) NOT NULL,
     senha_hash   NVARCHAR(255) NOT NULL,
     perfil       NVARCHAR(20) NOT NULL DEFAULT 'operador'
-                 CHECK (perfil IN ('admin','gerente','operador')),
+                 CHECK (perfil IN ('admin','gerente','operador','saas')),
     foto         NVARCHAR(MAX) NULL,
     ativo        BIT NOT NULL DEFAULT 1,
     criado_em    DATETIME2 NOT NULL DEFAULT GETDATE(),
