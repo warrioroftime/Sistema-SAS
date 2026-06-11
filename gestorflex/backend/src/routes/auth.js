@@ -12,7 +12,7 @@ router.post('/login', async (req, res) => {
     if (!email || !senha) return res.status(400).json({ error: 'E-mail e senha obrigatórios.' });
 
     const result = await query(`
-      SELECT u.id, u.empresa_id, u.nome, u.email, u.senha_hash, u.perfil, u.ativo, u.foto, u.tema,
+      SELECT u.id, u.empresa_id, u.nome, u.email, u.senha_hash, u.perfil, u.ativo, u.foto, u.tema, u.permissoes,
              e.razao_social AS empresa_nome
       FROM Usuarios u
       JOIN Empresas e ON e.id = u.empresa_id
@@ -40,8 +40,10 @@ router.post('/login', async (req, res) => {
       expiresIn: process.env.JWT_EXPIRES_IN || '8h',
     });
 
-    // foto e tema fora do JWT (foto é base64 grande demais; tema muda sem re-login)
-    res.json({ token, user: { ...payload, foto: user.foto || null, tema: user.tema || 'light' } });
+    // foto, tema e permissoes fora do JWT (mudam sem re-login)
+    let permissoes = null;
+    try { permissoes = user.permissoes ? JSON.parse(user.permissoes) : null; } catch {}
+    res.json({ token, user: { ...payload, foto: user.foto || null, tema: user.tema || 'light', permissoes } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Erro interno.' });

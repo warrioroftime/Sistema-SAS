@@ -724,61 +724,61 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
   <nav class="sidebar-nav">
     <div class="nav-section">
       <div class="nav-label">Principal</div>
-      <a class="nav-item active" href="javascript:void(0)" onclick="navigate('dashboard')">
+      <a class="nav-item active" data-perm="dashboard" href="javascript:void(0)" onclick="navigate('dashboard')">
         <i class="fa-solid fa-gauge-high"></i> Dashboard
       </a>
-      <a class="nav-item" href="javascript:void(0)" onclick="navigate('pdv')">
+      <a class="nav-item" data-perm="pdv" href="javascript:void(0)" onclick="navigate('pdv')">
         <i class="fa-solid fa-store"></i> PDV
       </a>
-      <a class="nav-item" href="javascript:void(0)" onclick="navigate('caixa')">
+      <a class="nav-item" data-perm="caixa" href="javascript:void(0)" onclick="navigate('caixa')">
         <i class="fa-solid fa-cash-register"></i> Caixa
       </a>
-      <a class="nav-item" href="javascript:void(0)" onclick="navigate('vendas')">
+      <a class="nav-item" data-perm="vendas" href="javascript:void(0)" onclick="navigate('vendas')">
         <i class="fa-solid fa-file-invoice-dollar"></i> Nova Venda
       </a>
-      <a class="nav-item" href="javascript:void(0)" onclick="navigate('historico')">
+      <a class="nav-item" data-perm="historico" href="javascript:void(0)" onclick="navigate('historico')">
         <i class="fa-solid fa-receipt"></i> Histórico de Vendas
       </a>
     </div>
     <div class="nav-section">
       <div class="nav-label">Cadastros</div>
-      <a class="nav-item" href="javascript:void(0)" onclick="navigate('produtos')">
+      <a class="nav-item" data-perm="produtos" href="javascript:void(0)" onclick="navigate('produtos')">
         <i class="fa-solid fa-cubes"></i> Produtos
       </a>
-      <a class="nav-item" href="javascript:void(0)" onclick="navigate('grupos')">
+      <a class="nav-item" data-perm="grupos" href="javascript:void(0)" onclick="navigate('grupos')">
         <i class="fa-solid fa-layer-group"></i> Grupos
       </a>
-      <a class="nav-item" href="javascript:void(0)" onclick="navigate('clientes')">
+      <a class="nav-item" data-perm="clientes" href="javascript:void(0)" onclick="navigate('clientes')">
         <i class="fa-solid fa-users"></i> Clientes
       </a>
     </div>
     <div class="nav-section">
       <div class="nav-label">Estoque</div>
-      <a class="nav-item" href="javascript:void(0)" onclick="navigate('estoque')">
+      <a class="nav-item" data-perm="estoque" href="javascript:void(0)" onclick="navigate('estoque')">
         <i class="fa-solid fa-warehouse"></i> Posição do Estoque
       </a>
-      <a class="nav-item" href="javascript:void(0)" onclick="navigate('movimentacoes')">
+      <a class="nav-item" data-perm="movimentacoes" href="javascript:void(0)" onclick="navigate('movimentacoes')">
         <i class="fa-solid fa-right-left"></i> Movimentações
       </a>
     </div>
     <div class="nav-section">
       <div class="nav-label">Financeiro</div>
-      <a class="nav-item" href="javascript:void(0)" onclick="navigate('contas-receber')">
+      <a class="nav-item" data-perm="contas-receber" href="javascript:void(0)" onclick="navigate('contas-receber')">
         <i class="fa-solid fa-hand-holding-dollar"></i> Contas a Receber
       </a>
-      <a class="nav-item" href="javascript:void(0)" onclick="navigate('contas-pagar')">
+      <a class="nav-item" data-perm="contas-pagar" href="javascript:void(0)" onclick="navigate('contas-pagar')">
         <i class="fa-solid fa-file-invoice-dollar"></i> Contas a Pagar
       </a>
-      <a class="nav-item" href="javascript:void(0)" onclick="navigate('despesas')">
+      <a class="nav-item" data-perm="despesas" href="javascript:void(0)" onclick="navigate('despesas')">
         <i class="fa-solid fa-receipt"></i> Lançamento de Despesas
       </a>
-      <a class="nav-item" href="javascript:void(0)" onclick="navigate('relatorios')">
+      <a class="nav-item" data-perm="relatorios" href="javascript:void(0)" onclick="navigate('relatorios')">
         <i class="fa-solid fa-chart-bar"></i> Relatórios
       </a>
     </div>
     <div class="nav-section">
       <div class="nav-label">Configurações</div>
-      <a class="nav-item" href="javascript:void(0)" onclick="navigate('recibo')">
+      <a class="nav-item" data-perm="recibo" href="javascript:void(0)" onclick="navigate('recibo')">
         <i class="fa-solid fa-receipt"></i> Personalizar Recibo
       </a>
     </div>
@@ -2759,7 +2759,7 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
       <div class="form-row cols-2">
         <div class="form-group"><label class="form-label">E-mail *</label><input class="form-input" id="madmu-email" type="email"></div>
         <div class="form-group"><label class="form-label">Perfil *</label>
-          <select class="form-select" id="madmu-perfil">
+          <select class="form-select" id="madmu-perfil" onchange="madmuPerfilChange(); madmuSetPermissoes(PERMS_DEFAULTS[this.value])">
             <option value="operador">Operador</option>
             <option value="gerente">Gerente</option>
             <option value="admin">Admin</option>
@@ -2767,6 +2767,51 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
         </div>
       </div>
       <div class="form-group" id="madmu-senha-group"><label class="form-label">Senha *</label><input class="form-input" id="madmu-senha" type="password" placeholder="Mínimo 6 caracteres"></div>
+
+      <!-- Permissões -->
+      <div id="madmu-perms-section">
+        <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:10px;padding-top:4px;border-top:1px solid var(--border)">
+          <i class="fa-solid fa-shield-halved" style="color:var(--blue);margin-right:6px"></i>Permissões de Acesso
+        </div>
+        <div id="madmu-perms-admin-msg" style="display:none;font-size:12px;color:var(--text3);padding:8px;background:var(--surface2);border-radius:8px">
+          <i class="fa-solid fa-circle-check" style="color:var(--green);margin-right:4px"></i>Administradores têm acesso total ao sistema.
+        </div>
+        <div id="madmu-perms-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Principal</div>
+            <label class="rc-chk"><input type="checkbox" data-pkey="dashboard"> Dashboard</label>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Vendas</div>
+            <label class="rc-chk"><input type="checkbox" data-pkey="pdv"> PDV</label>
+            <label class="rc-chk"><input type="checkbox" data-pkey="vendas"> Nova Venda</label>
+            <label class="rc-chk"><input type="checkbox" data-pkey="caixa"> Caixa</label>
+            <label class="rc-chk"><input type="checkbox" data-pkey="historico"> Histórico de Vendas</label>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Cadastros</div>
+            <label class="rc-chk"><input type="checkbox" data-pkey="produtos"> Produtos</label>
+            <label class="rc-chk"><input type="checkbox" data-pkey="grupos"> Grupos</label>
+            <label class="rc-chk"><input type="checkbox" data-pkey="clientes"> Clientes</label>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Estoque</div>
+            <label class="rc-chk"><input type="checkbox" data-pkey="estoque"> Posição do Estoque</label>
+            <label class="rc-chk"><input type="checkbox" data-pkey="movimentacoes"> Movimentações</label>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Financeiro</div>
+            <label class="rc-chk"><input type="checkbox" data-pkey="contas-receber"> Contas a Receber</label>
+            <label class="rc-chk"><input type="checkbox" data-pkey="contas-pagar"> Contas a Pagar</label>
+            <label class="rc-chk"><input type="checkbox" data-pkey="despesas"> Lançamento de Despesas</label>
+            <label class="rc-chk"><input type="checkbox" data-pkey="relatorios"> Relatórios</label>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Configurações</div>
+            <label class="rc-chk"><input type="checkbox" data-pkey="recibo"> Personalizar Recibo</label>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-adm-usuario')">Cancelar</button>
@@ -2942,9 +2987,56 @@ function applyUser(user) {
   document.getElementById('user-role').textContent   = user.perfil;
   document.getElementById('sidebar-empresa').textContent = user.empresa_nome || '—';
   document.getElementById('nav-admin').style.display = user.perfil === 'admin' ? 'block' : 'none';
-  // Aba Empresas só para a matriz (empresa 1)
   const ehMatriz = Number(user.empresa_id) === 1;
   document.getElementById('nav-empresas-item').style.display = ehMatriz ? 'flex' : 'none';
+  aplicarPermissoes(user);
+}
+
+// ── PERMISSÕES ────────────────────────────────────────────────────
+const PERMS_DEFAULTS = {
+  admin:    null,
+  gerente:  ['dashboard','pdv','caixa','vendas','historico','produtos','grupos','clientes','estoque','movimentacoes','contas-receber','contas-pagar','despesas','relatorios','recibo'],
+  operador: ['dashboard','pdv','caixa','vendas','historico','clientes'],
+};
+
+function aplicarPermissoes(user) {
+  document.querySelectorAll('.nav-item[data-perm]').forEach(el => el.style.display = '');
+  if (user.perfil === 'admin') return;
+  const perms = user.permissoes ?? PERMS_DEFAULTS[user.perfil] ?? PERMS_DEFAULTS.operador;
+  if (!perms) return;
+  document.querySelectorAll('.nav-item[data-perm]').forEach(el => {
+    el.style.display = perms.includes(el.getAttribute('data-perm')) ? '' : 'none';
+  });
+}
+
+// ── FORMULÁRIO DE PERMISSÕES (modal de usuário) ───────────────────
+function madmuPerfilChange() {
+  const perfil = document.getElementById('madmu-perfil').value;
+  const adminMsg  = document.getElementById('madmu-perms-admin-msg');
+  const grid      = document.getElementById('madmu-perms-grid');
+  if (perfil === 'admin') {
+    adminMsg.style.display = '';
+    grid.style.display = 'none';
+  } else {
+    adminMsg.style.display = 'none';
+    grid.style.display = 'grid';
+  }
+}
+
+function madmuSetPermissoes(perms) {
+  document.querySelectorAll('#madmu-perms-grid input[data-pkey]').forEach(chk => {
+    chk.checked = !perms || perms.includes(chk.getAttribute('data-pkey'));
+  });
+}
+
+function madmuGetPermissoes() {
+  const perfil = document.getElementById('madmu-perfil').value;
+  if (perfil === 'admin') return null;
+  const checked = [];
+  document.querySelectorAll('#madmu-perms-grid input[data-pkey]:checked').forEach(chk => {
+    checked.push(chk.getAttribute('data-pkey'));
+  });
+  return checked;
 }
 
 function doLogout() {
@@ -2980,6 +3072,15 @@ function closeSidebar() {
 }
 
 function navigate(page) {
+  // Verificação de permissão
+  const _u = Auth.getUser();
+  if (_u && _u.perfil !== 'admin') {
+    const _perms = _u.permissoes ?? PERMS_DEFAULTS[_u.perfil] ?? PERMS_DEFAULTS.operador;
+    if (_perms && !_perms.includes(page)) {
+      toast('Você não tem permissão para acessar esta página.', 'error');
+      return false;
+    }
+  }
   closeSidebar();
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => {
@@ -5990,6 +6091,8 @@ async function abrirModalUsuario() {
   document.getElementById('madmu-foto-input').value = '';
   madmuSetFotoPreview(null);
   document.getElementById('madmu-foto-initials').textContent = '?';
+  madmuPerfilChange();
+  madmuSetPermissoes(PERMS_DEFAULTS['operador']);
   openModal('modal-adm-usuario');
 }
 
@@ -6015,6 +6118,11 @@ async function editarUsuarioAdm(id) {
       document.getElementById('madmu-foto-initials').textContent =
         u.nome.split(' ').slice(0,2).map(n => n[0]).join('').toUpperCase();
     }
+    // Carrega permissões salvas ou padrão do perfil
+    let perms = null;
+    try { perms = u.permissoes ? JSON.parse(u.permissoes) : null; } catch {}
+    madmuPerfilChange();
+    madmuSetPermissoes(perms ?? PERMS_DEFAULTS[u.perfil]);
     openModal('modal-adm-usuario');
   } catch (err) { toast(err.message, 'error'); }
 }
@@ -6024,11 +6132,13 @@ async function salvarUsuarioAdm() {
   setBtnLoading('madmu-btn', true);
   try {
     const fotoPayload = madmuFotoBase64 !== null ? madmuFotoBase64 : undefined;
+    const permissoes = madmuGetPermissoes();
     if (id) {
       await api.put('/admin/usuarios/' + id, {
         nome:   qsV('#madmu-nome').trim(),
         email:  qsV('#madmu-email').trim(),
         perfil: qsV('#madmu-perfil'),
+        permissoes,
         ...(fotoPayload !== undefined && { foto: fotoPayload }),
       });
     } else {
@@ -6038,6 +6148,7 @@ async function salvarUsuarioAdm() {
         email:      qsV('#madmu-email').trim(),
         senha:      qsV('#madmu-senha'),
         perfil:     qsV('#madmu-perfil'),
+        permissoes,
         foto:       madmuFotoBase64 || null,
       });
     }

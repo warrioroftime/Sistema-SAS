@@ -134,7 +134,7 @@ router.get('/usuarios', async (req, res) => {
     const empresaFilter = empId ? 'AND u.empresa_id=@emp' : '';
     const params = empId ? { emp: empId } : {};
     const r = await query(`
-      SELECT u.id, u.nome, u.email, u.perfil, u.foto, u.ativo, u.criado_em,
+      SELECT u.id, u.nome, u.email, u.perfil, u.foto, u.ativo, u.criado_em, u.permissoes,
              e.razao_social AS empresa_nome, e.id AS empresa_id
       FROM Usuarios u
       JOIN Empresas e ON e.id = u.empresa_id
@@ -152,7 +152,6 @@ router.get('/usuarios', async (req, res) => {
 router.post('/usuarios', async (req, res) => {
   try {
     const { nome, email, senha, perfil, foto } = req.body;
-    // Admin-cliente só cria na própria empresa; matriz escolhe a empresa
     const empId = ehMatriz(req) ? parseInt(req.body.empresa_id) : req.user.empresa_id;
     if (!empId || !nome || !email || !senha) {
       return res.status(400).json({ error: 'Empresa, nome, e-mail e senha são obrigatórios.' });
@@ -162,12 +161,15 @@ router.post('/usuarios', async (req, res) => {
     await checarLimite(empId, 'usuarios');
     if (foto) await checarArmazenamento(empId, foto);
 
+    const permsRaw = req.body.permissoes;
+    const permissoes = Array.isArray(permsRaw) ? JSON.stringify(permsRaw) : (permsRaw || null);
+
     const hash = await bcrypt.hash(senha, 10);
     const r = await query(`
-      INSERT INTO Usuarios (empresa_id, nome, email, senha_hash, perfil, foto)
+      INSERT INTO Usuarios (empresa_id, nome, email, senha_hash, perfil, foto, permissoes)
       OUTPUT INSERTED.id
-      VALUES (@empresa_id, @nome, @email, @hash, @perfil, @foto)
-    `, { empresa_id: empId, nome, email, hash, perfil: perfil||'operador', foto: foto||null });
+      VALUES (@empresa_id, @nome, @email, @hash, @perfil, @foto, @permissoes)
+    `, { empresa_id: empId, nome, email, hash, perfil: perfil||'operador', foto: foto||null, permissoes });
 
     res.status(201).json({ id: r.recordset[0].id });
   } catch (err) {
@@ -192,12 +194,18 @@ router.put('/usuarios/:id', async (req, res) => {
       if (u.recordset[0]) await checarArmazenamento(u.recordset[0].empresa_id, foto);
     }
 
+    const permsRaw = req.body.permissoes;
+    const permissoes = Array.isArray(permsRaw) ? JSON.stringify(permsRaw) : (permsRaw !== undefined ? (permsRaw || null) : undefined);
+
     await query(`
       UPDATE Usuarios
       SET nome=@nome, email=@email, perfil=@perfil,
-          foto=CASE WHEN @foto IS NOT NULL THEN @foto ELSE foto END
+          foto=CASE WHEN @foto IS NOT NULL THEN @foto ELSE foto END,
+          permissoes=CASE WHEN @permsSet=1 THEN @permissoes ELSE permissoes END
       WHERE id=@id
-    `, { nome, email, perfil: perfil||'operador', foto: foto !== undefined ? (foto||null) : null, id: parseInt(req.params.id) });
+    `, { nome, email, perfil: perfil||'operador', foto: foto !== undefined ? (foto||null) : null,
+         permsSet: permissoes !== undefined ? 1 : 0, permissoes: permissoes !== undefined ? permissoes : null,
+         id: parseInt(req.params.id) });
 
     res.json({ ok: true });
   } catch (err) {
