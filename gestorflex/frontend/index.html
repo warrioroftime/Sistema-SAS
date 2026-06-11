@@ -601,6 +601,50 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
   .ls-hero{display:none}
   .ls-form-side{flex:1;padding:18px}
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   PAINEL SAAS
+═══════════════════════════════════════════════════════════════ */
+#saas-app{display:flex;height:100vh;overflow:hidden}
+#saas-sidebar{width:230px;min-width:230px;background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-right:1px solid var(--glass-border);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;box-shadow:4px 0 24px rgba(0,0,0,.06)}
+#saas-topbar{position:fixed;top:0;left:230px;right:0;background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-bottom:1px solid var(--glass-border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:50;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+#saas-content{margin-left:230px;margin-top:56px;flex:1;height:calc(100vh - 56px);overflow-y:auto;overflow-x:hidden;padding:24px;overflow-anchor:none}
+.saas-page{display:none}
+.saas-page.active{display:block}
+#saas-sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:99}
+
+/* KPI Grid */
+.saas-kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.saas-kpi-card{background:var(--glass-bg);backdrop-filter:var(--glass-blur);border:1px solid var(--glass-border);border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;transition:transform var(--dur),box-shadow var(--dur)}
+.saas-kpi-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.saas-kpi-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.saas-kpi-label{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.saas-kpi-val{font-size:26px;font-weight:700;color:var(--text);line-height:1}
+
+/* Alerta rows */
+.saas-alerta-row{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);margin-bottom:6px;font-size:12px}
+.saas-alerta-row:last-child{margin-bottom:0}
+.saas-badge-plano{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;background:var(--blue-light);color:var(--blue)}
+.saas-badge-status-ativa{background:var(--green-light);color:var(--green)}
+.saas-badge-status-suspensa{background:var(--amber-light);color:var(--amber)}
+.saas-badge-status-bloqueada,.saas-badge-status-cancelada{background:var(--red-light);color:var(--red)}
+.saas-dias-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
+.saas-dias-ok{background:var(--green-light);color:var(--green)}
+.saas-dias-warn{background:var(--amber-light);color:var(--amber)}
+.saas-dias-crit{background:var(--red-light);color:var(--red)}
+
+@media (max-width:900px){
+  .saas-kpi-grid{grid-template-columns:repeat(2,1fr)}
+  #saas-sidebar{transform:translateX(-100%);transition:transform .25s ease}
+  #saas-sidebar.open{transform:translateX(0)}
+  #saas-topbar{left:0}
+  #saas-content{margin-left:0}
+  #saas-sidebar-overlay.show{display:block}
+}
+@media (max-width:600px){
+  .saas-kpi-grid{grid-template-columns:1fr 1fr}
+  #saas-content{padding:14px}
+}
 </style>
 </head>
 <body>
@@ -1576,6 +1620,351 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
   </div><!-- /content -->
 </div><!-- /main -->
 
+<!-- ═══════════════════════════════════════════════════════════════
+     PAINEL SAAS — exibido quando perfil === 'saas'
+═══════════════════════════════════════════════════════════════ -->
+<div id="saas-app" style="display:none">
+
+  <!-- Sidebar SaaS -->
+  <aside id="saas-sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon" style="background:var(--blue-gradient)">GF</div>
+      <div>
+        <div class="logo-text">GestorFlex</div>
+        <div class="logo-sub" style="color:var(--blue);font-weight:700;font-size:10px;letter-spacing:.08em;text-transform:uppercase">Painel SaaS</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-label">Visão Geral</div>
+        <a class="nav-item active" href="javascript:void(0)" onclick="saasNavigate('saas-dashboard')">
+          <i class="fa-solid fa-chart-line"></i> Dashboard
+        </a>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Gestão</div>
+        <a class="nav-item" href="javascript:void(0)" onclick="saasNavigate('saas-clientes')">
+          <i class="fa-solid fa-building"></i> Clientes
+        </a>
+        <a class="nav-item" href="javascript:void(0)" onclick="saasNavigate('saas-cobranca')">
+          <i class="fa-solid fa-file-invoice-dollar"></i> Cobrança
+        </a>
+        <a class="nav-item" href="javascript:void(0)" onclick="saasNavigate('saas-usuarios')">
+          <i class="fa-solid fa-users-gear"></i> Usuários
+        </a>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="saas-user-avatar" class="user-avatar" style="width:34px;height:34px;font-size:13px"></div>
+      <div style="flex:1;min-width:0">
+        <div class="user-name" id="saas-user-name">—</div>
+        <div class="user-role" style="color:var(--blue);font-weight:600">SaaS Admin</div>
+      </div>
+      <button class="btn-icon" onclick="doLogout()" title="Sair"><i class="fa-solid fa-right-from-bracket"></i></button>
+    </div>
+  </aside>
+
+  <!-- Topbar SaaS -->
+  <div id="saas-topbar">
+    <div class="topbar-left">
+      <button class="menu-toggle" onclick="saasSidebarToggle()" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+      <span class="topbar-title" id="saas-topbar-title">Dashboard</span>
+    </div>
+    <div class="topbar-right">
+      <span style="font-size:12px;color:var(--text3)" id="saas-topbar-date"></span>
+      <button class="btn btn-primary btn-sm" onclick="saasAbrirModalEmpresa()">
+        <i class="fa-solid fa-plus"></i> Novo Cliente
+      </button>
+    </div>
+  </div>
+  <div id="saas-sidebar-overlay" onclick="saasSidebarToggle()"></div>
+
+  <!-- Content SaaS -->
+  <div id="saas-content">
+
+    <!-- ── DASHBOARD ── -->
+    <div id="page-saas-dashboard" class="saas-page active">
+      <div class="page-header">
+        <div>
+          <div class="page-title"><i class="fa-solid fa-chart-line"></i> Dashboard SaaS</div>
+          <div class="page-sub">Visão geral de todos os clientes e métricas</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="saasDashLoad()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="saas-kpi-grid" id="saas-kpi-grid">
+        <div class="saas-kpi-card">
+          <div class="saas-kpi-icon" style="background:var(--blue-light);color:var(--blue)"><i class="fa-solid fa-building"></i></div>
+          <div><div class="saas-kpi-label">Total Clientes</div><div class="saas-kpi-val" id="kpi-total">—</div></div>
+        </div>
+        <div class="saas-kpi-card">
+          <div class="saas-kpi-icon" style="background:var(--green-light);color:var(--green)"><i class="fa-solid fa-circle-check"></i></div>
+          <div><div class="saas-kpi-label">Ativos</div><div class="saas-kpi-val" id="kpi-ativas">—</div></div>
+        </div>
+        <div class="saas-kpi-card">
+          <div class="saas-kpi-icon" style="background:var(--amber-light);color:var(--amber)"><i class="fa-solid fa-clock"></i></div>
+          <div><div class="saas-kpi-label">Em Trial</div><div class="saas-kpi-val" id="kpi-trial">—</div></div>
+        </div>
+        <div class="saas-kpi-card">
+          <div class="saas-kpi-icon" style="background:#fde8d8;color:#c2410c"><i class="fa-solid fa-calendar-xmark"></i></div>
+          <div><div class="saas-kpi-label">Vencendo em 30d</div><div class="saas-kpi-val" id="kpi-venc30">—</div></div>
+        </div>
+        <div class="saas-kpi-card">
+          <div class="saas-kpi-icon" style="background:var(--red-light);color:var(--red)"><i class="fa-solid fa-ban"></i></div>
+          <div><div class="saas-kpi-label">Suspensos</div><div class="saas-kpi-val" id="kpi-susp">—</div></div>
+        </div>
+      </div>
+
+      <!-- Alertas + Planos -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px">
+
+        <div class="card">
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+            <i class="fa-solid fa-triangle-exclamation" style="color:var(--amber)"></i> Trials Expirando (7 dias)
+          </div>
+          <div id="saas-alerta-trial"><div style="color:var(--text3);font-size:13px;text-align:center;padding:12px 0">Carregando...</div></div>
+        </div>
+
+        <div class="card">
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+            <i class="fa-solid fa-calendar-days" style="color:var(--blue)"></i> Vencimentos Próximos (30 dias)
+          </div>
+          <div id="saas-alerta-venc"><div style="color:var(--text3);font-size:13px;text-align:center;padding:12px 0">Carregando...</div></div>
+        </div>
+
+      </div>
+
+      <!-- Distribuição por Plano -->
+      <div class="card" style="margin-top:18px">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+          <i class="fa-solid fa-layer-group" style="color:var(--blue)"></i> Distribuição por Plano
+        </div>
+        <div id="saas-planos-grid" style="display:flex;flex-wrap:wrap;gap:10px"></div>
+      </div>
+    </div>
+
+    <!-- ── CLIENTES ── -->
+    <div id="page-saas-clientes" class="saas-page">
+      <div class="page-header">
+        <div>
+          <div class="page-title"><i class="fa-solid fa-building"></i> Clientes</div>
+          <div class="page-sub">Gerencie todos os tenants do sistema</div>
+        </div>
+        <button class="btn btn-primary" onclick="saasAbrirModalEmpresa()">
+          <i class="fa-solid fa-plus"></i> Novo Cliente
+        </button>
+      </div>
+
+      <!-- Filtros -->
+      <div class="card" style="padding:14px 18px;margin-bottom:14px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <input class="form-input" id="saas-filtro-q" placeholder="Buscar por nome, CNPJ ou e-mail..." style="flex:1;min-width:200px" oninput="debounce(saasLoadClientes,400)()" >
+          <select class="form-select" id="saas-filtro-status" style="width:140px" onchange="saasLoadClientes()">
+            <option value="">Todos os status</option>
+            <option value="ativa">Ativa</option>
+            <option value="suspensa">Suspensa</option>
+            <option value="bloqueada">Bloqueada</option>
+            <option value="cancelada">Cancelada</option>
+          </select>
+          <select class="form-select" id="saas-filtro-plano" style="width:160px" onchange="saasLoadClientes()">
+            <option value="">Todos os planos</option>
+            <option value="Gratuito">Gratuito</option>
+            <option value="Básico">Básico</option>
+            <option value="Profissional">Profissional</option>
+            <option value="Empresarial">Empresarial</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="saasLoadClientes()"><i class="fa-solid fa-rotate"></i></button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr>
+              <th>#</th><th>Razão Social</th><th>Plano</th><th>Status</th>
+              <th>Vencimento</th><th>Trial</th><th>Usuários</th><th>Ações</th>
+            </tr></thead>
+            <tbody id="saas-clientes-tbody">
+              <tr class="loading-row"><td colspan="8"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── COBRANÇA ── -->
+    <div id="page-saas-cobranca" class="saas-page">
+      <div class="page-header">
+        <div>
+          <div class="page-title"><i class="fa-solid fa-file-invoice-dollar"></i> Cobrança</div>
+          <div class="page-sub">Acompanhe vencimentos e inadimplência</div>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="saasLoadCobranca()"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+        <div class="card">
+          <div style="font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+            <i class="fa-solid fa-calendar-days" style="color:var(--amber)"></i> Vencendo em 30 dias
+          </div>
+          <div id="saas-cob-venc30"></div>
+        </div>
+        <div class="card">
+          <div style="font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+            <i class="fa-solid fa-circle-exclamation" style="color:var(--red)"></i> Vencidos (ainda ativos)
+          </div>
+          <div id="saas-cob-vencidas"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:18px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+          <i class="fa-solid fa-ban" style="color:var(--red)"></i> Suspensos / Bloqueados
+        </div>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Empresa</th><th>Plano</th><th>Status</th><th>Vencimento</th><th>Ações</th></tr></thead>
+            <tbody id="saas-cob-susp-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── USUÁRIOS SaaS ── -->
+    <div id="page-saas-usuarios" class="saas-page">
+      <div class="page-header">
+        <div>
+          <div class="page-title"><i class="fa-solid fa-users-gear"></i> Usuários SaaS</div>
+          <div class="page-sub">Usuários com acesso ao painel SaaS</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th></tr></thead>
+            <tbody id="saas-usuarios-tbody">
+              <tr class="loading-row"><td colspan="4"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /saas-content -->
+</div><!-- /saas-app -->
+
+<!-- Modal Empresa SaaS -->
+<div class="modal-backdrop" id="modal-saas-empresa">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <span class="modal-title" id="mse-titulo"><i class="fa-solid fa-building" style="color:var(--blue);margin-right:8px"></i>Nova Empresa</span>
+      <button class="btn-icon" onclick="closeModal('modal-saas-empresa')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="mse-id">
+
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Dados da empresa</div>
+      <div class="form-group"><label class="form-label">Razão Social *</label><input class="form-input" id="mse-razao" placeholder="Nome da empresa"></div>
+      <div class="form-row cols-2">
+        <div class="form-group"><label class="form-label">CNPJ</label><input class="form-input" id="mse-cnpj" placeholder="00.000.000/0001-00"></div>
+        <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" id="mse-tel" placeholder="(00) 00000-0000"></div>
+      </div>
+      <div class="form-group"><label class="form-label">E-mail</label><input class="form-input" id="mse-email" type="email" placeholder="contato@empresa.com"></div>
+
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin:14px 0 10px">Plano &amp; Contrato</div>
+      <div class="form-row cols-2">
+        <div class="form-group"><label class="form-label">Plano</label>
+          <select class="form-select" id="mse-plano">
+            <option value="Gratuito">Gratuito</option>
+            <option value="Básico">Básico</option>
+            <option value="Profissional">Profissional</option>
+            <option value="Empresarial">Empresarial</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Status</label>
+          <select class="form-select" id="mse-status">
+            <option value="ativa">Ativa</option>
+            <option value="suspensa">Suspensa</option>
+            <option value="bloqueada">Bloqueada</option>
+            <option value="cancelada">Cancelada</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row cols-2">
+        <div class="form-group"><label class="form-label">Data de Contratação</label><input class="form-input" type="date" id="mse-dc"></div>
+        <div class="form-group"><label class="form-label">Data de Vencimento</label><input class="form-input" type="date" id="mse-dv"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Expiração do Trial</label><input class="form-input" type="date" id="mse-trial"></div>
+
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin:14px 0 10px">Limites do plano</div>
+      <div class="form-row cols-2">
+        <div class="form-group"><label class="form-label">Limite de Usuários</label><input class="form-input" type="number" min="0" id="mse-lu" placeholder="ilimitado"></div>
+        <div class="form-group"><label class="form-label">Limite de Produtos</label><input class="form-input" type="number" min="0" id="mse-lp" placeholder="ilimitado"></div>
+      </div>
+      <div class="form-row cols-2">
+        <div class="form-group"><label class="form-label">Limite de Clientes</label><input class="form-input" type="number" min="0" id="mse-lc" placeholder="ilimitado"></div>
+        <div class="form-group"><label class="form-label">Armazenamento (MB)</label><input class="form-input" type="number" min="0" id="mse-larm" placeholder="ilimitado"></div>
+      </div>
+
+      <!-- Admin inicial (só em criação) -->
+      <div id="mse-admin-section">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin:14px 0 10px">Usuário Admin inicial <span style="font-weight:400;text-transform:none;font-size:11px;opacity:.7">(opcional)</span></div>
+        <div class="form-row cols-2">
+          <div class="form-group"><label class="form-label">Nome do Admin</label><input class="form-input" id="mse-admin-nome" placeholder="João Silva"></div>
+          <div class="form-group"><label class="form-label">E-mail do Admin</label><input class="form-input" type="email" id="mse-admin-email" placeholder="admin@empresa.com"></div>
+        </div>
+        <div class="form-group"><label class="form-label">Senha</label><input class="form-input" type="password" id="mse-admin-senha" placeholder="Mínimo 6 caracteres"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-saas-empresa')">Cancelar</button>
+      <button class="btn btn-primary" id="mse-btn" onclick="saasSalvarEmpresa()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Detalhes / Usuários da Empresa -->
+<div class="modal-backdrop" id="modal-saas-detalhe">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <span class="modal-title" id="msd-titulo"><i class="fa-solid fa-building" style="color:var(--blue);margin-right:8px"></i>Detalhes</span>
+      <button class="btn-icon" onclick="closeModal('modal-saas-detalhe')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="msd-info" style="background:var(--surface2);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
+      <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Usuários</div>
+      <div class="table-wrap" style="max-height:240px;overflow-y:auto">
+        <table class="data" style="font-size:12px">
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Reset Senha</th></tr></thead>
+          <tbody id="msd-usuarios-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-saas-detalhe')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Reset Senha -->
+<div class="modal-backdrop" id="modal-saas-senha">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <span class="modal-title">Redefinir Senha</span>
+      <button class="btn-icon" onclick="closeModal('modal-saas-senha')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="mss-uid">
+      <div class="form-group"><label class="form-label">Nova Senha *</label><input class="form-input" type="password" id="mss-senha" placeholder="Mínimo 6 caracteres"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-saas-senha')">Cancelar</button>
+      <button class="btn btn-primary" id="mss-btn" onclick="saasResetSenha()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── MODAIS ──────────────────────────────────────────────────── -->
 
 <!-- Modal PDV: Forma de Pagamento -->
@@ -2099,6 +2488,9 @@ document.getElementById('topbar-date').textContent =
 function showLogin() {
   Auth.clear();
   document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('saas-app').style.display = 'none';
+  document.getElementById('main').style.display = '';
+  document.getElementById('sidebar').style.display = '';
 }
 function hideLogin() {
   document.getElementById('login-screen').classList.add('hidden');
@@ -2126,9 +2518,13 @@ async function doLogin() {
     const data = await api.post('/auth/login', { email, senha });
     Auth.setToken(data.token);
     Auth.setUser(data.user);
-    applyUser(data.user);
     hideLogin();
-    navigate('dashboard');
+    if (data.user.perfil === 'saas') {
+      saasEntrar(data.user);
+    } else {
+      applyUser(data.user);
+      navigate('dashboard');
+    }
   } catch (err) {
     errEl.textContent = err.message;
     errEl.style.display = 'block';
@@ -4904,6 +5300,14 @@ async function confirmarResetSenha() {
 // ── MODO CLARO FIXO (dark mode desativado) ────────────────────────
 function toggleDarkMode() { /* tema fixo claro (branco e laranja) */ }
 
+// ── PAINEL SAAS — nomes de página (deve vir antes do init) ───────
+const saasPageNames = {
+  'saas-dashboard': 'Dashboard SaaS',
+  'saas-clientes':  'Clientes',
+  'saas-cobranca':  'Cobrança',
+  'saas-usuarios':  'Usuários SaaS',
+};
+
 // ── INIT ──────────────────────────────────────────────────────────
 (function init() {
   // AOS
@@ -4915,13 +5319,444 @@ function toggleDarkMode() { /* tema fixo claro (branco e laranja) */ }
   const user = Auth.getUser();
   const token = Auth.getToken();
   if (user && token) {
-    applyUser(user);
     hideLogin();
-    loadDashboard();
+    if (user.perfil === 'saas') {
+      saasEntrar(user);
+    } else {
+      applyUser(user);
+      loadDashboard();
+    }
   } else {
     showLogin();
   }
 })();
+
+// ═══════════════════════════════════════════════════════════════
+// PAINEL SAAS
+// ═══════════════════════════════════════════════════════════════
+
+function saasEntrar(user) {
+  document.getElementById('main').style.display    = 'none';
+  document.getElementById('sidebar').style.display = 'none';
+  document.getElementById('saas-app').style.display = 'flex';
+
+  const initials = user.nome.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
+  const av = document.getElementById('saas-user-avatar');
+  if (user.foto) {
+    av.textContent = '';
+    av.style.backgroundImage = `url(${user.foto})`;
+    av.style.backgroundSize = 'cover';
+    av.style.backgroundPosition = 'center';
+  } else {
+    av.textContent = initials;
+  }
+  document.getElementById('saas-user-name').textContent = user.nome;
+  document.getElementById('saas-topbar-date').textContent =
+    new Date().toLocaleDateString('pt-BR', {weekday:'short',day:'numeric',month:'short',year:'numeric'});
+
+  saasNavigate('saas-dashboard');
+}
+
+function saasNavigate(page) {
+  document.querySelectorAll('.saas-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#saas-sidebar .nav-item').forEach(n =>
+    n.classList.toggle('active', n.getAttribute('onclick')?.includes(`'${page}'`))
+  );
+  const el = document.getElementById('page-' + page);
+  if (el) el.classList.add('active');
+  document.getElementById('saas-topbar-title').textContent = saasPageNames[page] || page;
+  document.getElementById('saas-content').scrollTop = 0;
+  saasSidebarClose();
+
+  if (page === 'saas-dashboard') saasDashLoad();
+  else if (page === 'saas-clientes')  saasLoadClientes();
+  else if (page === 'saas-cobranca')  saasLoadCobranca();
+  else if (page === 'saas-usuarios')  saasLoadUsuarios();
+}
+
+function saasSidebarToggle() {
+  const sb = document.getElementById('saas-sidebar');
+  const ov = document.getElementById('saas-sidebar-overlay');
+  const open = sb.classList.toggle('open');
+  ov.classList.toggle('show', open);
+}
+function saasSidebarClose() {
+  document.getElementById('saas-sidebar').classList.remove('open');
+  document.getElementById('saas-sidebar-overlay').classList.remove('show');
+}
+
+// ── Dashboard ────────────────────────────────────────────────────
+async function saasDashLoad() {
+  try {
+    const s = await api.get('/saas/stats');
+
+    document.getElementById('kpi-total').textContent  = s.total  ?? 0;
+    document.getElementById('kpi-ativas').textContent = s.ativas ?? 0;
+    document.getElementById('kpi-trial').textContent  = s.em_trial ?? 0;
+    document.getElementById('kpi-venc30').textContent = s.vencendo_30d ?? 0;
+    document.getElementById('kpi-susp').textContent   = (s.suspensas||0) + (s.bloqueadas||0);
+
+    // Alertas trial
+    const at = document.getElementById('saas-alerta-trial');
+    if (!s.alertas_trial?.length) {
+      at.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:12px 0"><i class="fa-solid fa-check" style="color:var(--green)"></i> Nenhum trial expirando</div>';
+    } else {
+      at.innerHTML = s.alertas_trial.map(a => {
+        const dc = a.dias_restantes <= 1 ? 'saas-dias-crit' : a.dias_restantes <= 3 ? 'saas-dias-warn' : 'saas-dias-ok';
+        return `<div class="saas-alerta-row">
+          <div style="font-weight:600;font-size:12px">${a.razao_social}</div>
+          <span class="saas-dias-badge ${dc}">${a.dias_restantes === 0 ? 'Hoje' : a.dias_restantes + 'd'}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // Alertas vencimento
+    const av = document.getElementById('saas-alerta-venc');
+    if (!s.alertas_venc?.length) {
+      av.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:12px 0"><i class="fa-solid fa-check" style="color:var(--green)"></i> Nenhum vencimento próximo</div>';
+    } else {
+      av.innerHTML = s.alertas_venc.map(a => {
+        const dc = a.dias_restantes <= 3 ? 'saas-dias-crit' : a.dias_restantes <= 10 ? 'saas-dias-warn' : 'saas-dias-ok';
+        return `<div class="saas-alerta-row">
+          <div>
+            <div style="font-weight:600;font-size:12px">${a.razao_social}</div>
+            <div style="font-size:11px;color:var(--text3)">${a.plano}</div>
+          </div>
+          <span class="saas-dias-badge ${dc}">${a.dias_restantes === 0 ? 'Hoje' : a.dias_restantes + 'd'}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // Planos
+    const pg = document.getElementById('saas-planos-grid');
+    const cores = { Gratuito:'var(--text3)', Básico:'var(--blue)', Profissional:'var(--green)', Empresarial:'var(--amber)' };
+    pg.innerHTML = (s.planos||[]).map(p => `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:120px">
+        <div style="font-size:11px;font-weight:700;color:${cores[p.plano]||'var(--text2)'};text-transform:uppercase;letter-spacing:.06em">${p.plano}</div>
+        <div style="font-size:24px;font-weight:700;margin-top:4px">${p.qtd}</div>
+        <div style="font-size:11px;color:var(--text3)">cliente${p.qtd!==1?'s':''}</div>
+      </div>
+    `).join('') || '<div style="color:var(--text3);font-size:13px">Nenhum dado</div>';
+
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// ── Clientes (tabela) ─────────────────────────────────────────────
+async function saasLoadClientes() {
+  const tbody = document.getElementById('saas-clientes-tbody');
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="8"><div class="spinner"></div></td></tr>';
+  try {
+    const q      = document.getElementById('saas-filtro-q')?.value || '';
+    const status = document.getElementById('saas-filtro-status')?.value || '';
+    const plano  = document.getElementById('saas-filtro-plano')?.value || '';
+    let url = '/saas/empresas?';
+    if (q)      url += `q=${encodeURIComponent(q)}&`;
+    if (status) url += `status=${status}&`;
+    if (plano)  url += `plano=${encodeURIComponent(plano)}&`;
+
+    const lista = await api.get(url);
+    if (!lista.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Nenhuma empresa encontrada</td></tr>';
+      return;
+    }
+    tbody.innerHTML = lista.map(e => {
+      const statusCls = {ativa:'badge-green',suspensa:'badge-amber',bloqueada:'badge-red',cancelada:'badge-red'}[e.status]||'badge-gray';
+      const venc = e.data_vencimento ? fmtD(e.data_vencimento) : '—';
+      const trial = e.trial_expira_em ? fmtD(e.trial_expira_em) : '—';
+      return `<tr>
+        <td style="color:var(--text3);font-size:11px">#${e.id}</td>
+        <td>
+          <div style="font-weight:600;font-size:13px">${e.razao_social}</div>
+          ${e.email ? `<div style="font-size:11px;color:var(--text3)">${e.email}</div>` : ''}
+        </td>
+        <td><span class="saas-badge-plano">${e.plano}</span></td>
+        <td><span class="badge ${statusCls}">${e.status}</span></td>
+        <td style="font-size:12px">${venc}</td>
+        <td style="font-size:12px;color:${e.trial_expira_em ? 'var(--amber)' : 'var(--text3)'}">${trial}</td>
+        <td style="font-size:12px;text-align:center">${e.qtd_usuarios||0}</td>
+        <td>
+          <div style="display:flex;gap:4px">
+            <button class="btn-icon" title="Editar" onclick="saasAbrirModalEmpresa(${e.id})"><i class="fa-solid fa-pen"></i></button>
+            <button class="btn-icon" title="Ver usuários" onclick="saasVerDetalhe(${e.id})"><i class="fa-solid fa-users"></i></button>
+            <button class="btn-icon" title="${e.ativo ? 'Suspender' : 'Reativar'}"
+              style="color:${e.ativo ? 'var(--amber)' : 'var(--green)'}"
+              onclick="saasToggleEmpresa(${e.id}, ${e.ativo})">
+              <i class="fa-solid fa-${e.ativo ? 'pause' : 'play'}"></i>
+            </button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    toast(err.message, 'error');
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--red)">Erro ao carregar</td></tr>';
+  }
+}
+
+// ── Cobrança ─────────────────────────────────────────────────────
+async function saasLoadCobranca() {
+  try {
+    const s = await api.get('/saas/stats');
+
+    // Vencendo 30d
+    const v30 = document.getElementById('saas-cob-venc30');
+    if (!s.alertas_venc?.length) {
+      v30.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:14px">Nenhum vencimento próximo</div>';
+    } else {
+      v30.innerHTML = s.alertas_venc.map(a => {
+        const dc = a.dias_restantes <= 3 ? 'saas-dias-crit' : a.dias_restantes <= 10 ? 'saas-dias-warn' : 'saas-dias-ok';
+        return `<div class="saas-alerta-row">
+          <div>
+            <div style="font-weight:600;font-size:12px">${a.razao_social}</div>
+            <div style="font-size:11px;color:var(--text3)">${a.plano} · ${fmtD(a.data_vencimento)}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="saas-dias-badge ${dc}">${a.dias_restantes === 0 ? 'Hoje' : a.dias_restantes + 'd'}</span>
+            <button class="btn btn-sm btn-secondary" onclick="saasAbrirModalEmpresa(${a.id})">Editar</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // Vencidas
+    const venc = document.getElementById('saas-cob-vencidas');
+    try {
+      const todas = await api.get('/saas/empresas?status=ativa');
+      const hoje = new Date(); hoje.setHours(0,0,0,0);
+      const vencidas = todas.filter(e => e.data_vencimento && new Date(e.data_vencimento) < hoje);
+      if (!vencidas.length) {
+        venc.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:14px">Nenhuma empresa vencida ativa</div>';
+      } else {
+        venc.innerHTML = vencidas.map(e => `
+          <div class="saas-alerta-row">
+            <div>
+              <div style="font-weight:600;font-size:12px">${e.razao_social}</div>
+              <div style="font-size:11px;color:var(--red)">Venceu em ${fmtD(e.data_vencimento)}</div>
+            </div>
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-sm btn-secondary" onclick="saasAbrirModalEmpresa(${e.id})">Editar</button>
+              <button class="btn btn-sm" style="background:var(--amber-light);color:var(--amber);border:none" onclick="saasAlterarStatus(${e.id},'suspensa')">Suspender</button>
+            </div>
+          </div>`).join('');
+      }
+    } catch(_) {}
+
+    // Suspensos/Bloqueados
+    const tbody = document.getElementById('saas-cob-susp-tbody');
+    try {
+      const [susp, bloq] = await Promise.all([
+        api.get('/saas/empresas?status=suspensa'),
+        api.get('/saas/empresas?status=bloqueada'),
+      ]);
+      const lista = [...susp, ...bloq];
+      if (!lista.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:14px">Nenhuma empresa suspensa ou bloqueada</td></tr>';
+      } else {
+        tbody.innerHTML = lista.map(e => `<tr>
+          <td><div style="font-weight:600;font-size:12px">${e.razao_social}</div>${e.email?`<div style="font-size:11px;color:var(--text3)">${e.email}</div>`:''}</td>
+          <td><span class="saas-badge-plano">${e.plano}</span></td>
+          <td><span class="badge ${e.status==='suspensa'?'badge-amber':'badge-red'}">${e.status}</span></td>
+          <td style="font-size:12px">${e.data_vencimento ? fmtD(e.data_vencimento) : '—'}</td>
+          <td>
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-sm" style="background:var(--green-light);color:var(--green);border:none" onclick="saasAlterarStatus(${e.id},'ativa')">Reativar</button>
+              <button class="btn-icon" title="Editar" onclick="saasAbrirModalEmpresa(${e.id})"><i class="fa-solid fa-pen"></i></button>
+            </div>
+          </td>
+        </tr>`).join('');
+      }
+    } catch(_) {}
+
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// ── Usuários SaaS ─────────────────────────────────────────────────
+async function saasLoadUsuarios() {
+  const tbody = document.getElementById('saas-usuarios-tbody');
+  tbody.innerHTML = '<tr class="loading-row"><td colspan="4"><div class="spinner"></div></td></tr>';
+  try {
+    const lista = await api.get('/saas/empresas/1/usuarios');
+    tbody.innerHTML = lista.map(u => `<tr>
+      <td style="font-weight:600;font-size:13px">${u.nome}</td>
+      <td style="font-size:12px">${u.email}</td>
+      <td><span class="badge badge-blue">${u.perfil}</span></td>
+      <td><span class="badge ${u.ativo ? 'badge-green' : 'badge-red'}">${u.ativo ? 'Ativo' : 'Inativo'}</span></td>
+    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text3)">Nenhum usuário</td></tr>';
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// ── Modal Empresa ─────────────────────────────────────────────────
+async function saasAbrirModalEmpresa(id) {
+  document.getElementById('mse-id').value = '';
+  document.getElementById('mse-razao').value = '';
+  document.getElementById('mse-cnpj').value  = '';
+  document.getElementById('mse-tel').value   = '';
+  document.getElementById('mse-email').value = '';
+  document.getElementById('mse-plano').value  = 'Gratuito';
+  document.getElementById('mse-status').value = 'ativa';
+  document.getElementById('mse-dc').value    = '';
+  document.getElementById('mse-dv').value    = '';
+  document.getElementById('mse-trial').value = '';
+  document.getElementById('mse-lu').value    = '';
+  document.getElementById('mse-lp').value    = '';
+  document.getElementById('mse-lc').value    = '';
+  document.getElementById('mse-larm').value  = '';
+  document.getElementById('mse-admin-nome').value  = '';
+  document.getElementById('mse-admin-email').value = '';
+  document.getElementById('mse-admin-senha').value = '';
+
+  if (id) {
+    document.getElementById('mse-titulo').innerHTML = '<i class="fa-solid fa-building" style="color:var(--blue);margin-right:8px"></i>Editar Empresa';
+    document.getElementById('mse-admin-section').style.display = 'none';
+    try {
+      const e = await api.get('/saas/empresas/' + id);
+      document.getElementById('mse-id').value    = e.id;
+      document.getElementById('mse-razao').value = e.razao_social;
+      document.getElementById('mse-cnpj').value  = e.cnpj || '';
+      document.getElementById('mse-tel').value   = e.telefone || '';
+      document.getElementById('mse-email').value = e.email || '';
+      document.getElementById('mse-plano').value  = e.plano;
+      document.getElementById('mse-status').value = e.status;
+      document.getElementById('mse-dc').value    = e.data_contratacao ? e.data_contratacao.split('T')[0] : '';
+      document.getElementById('mse-dv').value    = e.data_vencimento  ? e.data_vencimento.split('T')[0]  : '';
+      document.getElementById('mse-trial').value = e.trial_expira_em  ? e.trial_expira_em.split('T')[0]  : '';
+      document.getElementById('mse-lu').value    = e.limite_usuarios   ?? '';
+      document.getElementById('mse-lp').value    = e.limite_produtos   ?? '';
+      document.getElementById('mse-lc').value    = e.limite_clientes   ?? '';
+      document.getElementById('mse-larm').value  = e.limite_armazenamento ?? '';
+    } catch (err) { toast(err.message, 'error'); return; }
+  } else {
+    document.getElementById('mse-titulo').innerHTML = '<i class="fa-solid fa-building" style="color:var(--blue);margin-right:8px"></i>Novo Cliente';
+    document.getElementById('mse-admin-section').style.display = 'block';
+  }
+  openModal('modal-saas-empresa');
+}
+
+async function saasSalvarEmpresa() {
+  const id = document.getElementById('mse-id').value;
+  const body = {
+    razao_social:        document.getElementById('mse-razao').value.trim(),
+    cnpj:                document.getElementById('mse-cnpj').value.trim(),
+    telefone:            document.getElementById('mse-tel').value.trim(),
+    email:               document.getElementById('mse-email').value.trim(),
+    plano:               document.getElementById('mse-plano').value,
+    status:              document.getElementById('mse-status').value,
+    data_contratacao:    document.getElementById('mse-dc').value    || null,
+    data_vencimento:     document.getElementById('mse-dv').value    || null,
+    trial_expira_em:     document.getElementById('mse-trial').value || null,
+    limite_usuarios:     document.getElementById('mse-lu').value    || null,
+    limite_produtos:     document.getElementById('mse-lp').value    || null,
+    limite_clientes:     document.getElementById('mse-lc').value    || null,
+    limite_armazenamento:document.getElementById('mse-larm').value  || null,
+  };
+  if (!body.razao_social) return toast('Razão social obrigatória.', 'error');
+  if (!id) {
+    body.admin_nome  = document.getElementById('mse-admin-nome').value.trim();
+    body.admin_email = document.getElementById('mse-admin-email').value.trim();
+    body.admin_senha = document.getElementById('mse-admin-senha').value;
+  }
+  setBtnLoading('mse-btn', true);
+  try {
+    if (id) await api.put('/saas/empresas/' + id, body);
+    else    await api.post('/saas/empresas', body);
+    toast(id ? 'Empresa atualizada!' : 'Empresa criada com sucesso!');
+    closeModal('modal-saas-empresa');
+    saasLoadClientes();
+    if (document.getElementById('page-saas-dashboard').classList.contains('active')) saasDashLoad();
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    setBtnLoading('mse-btn', false);
+  }
+}
+
+async function saasToggleEmpresa(id, ativo) {
+  try {
+    await api.put('/saas/empresas/' + id, { status: ativo ? 'suspensa' : 'ativa' });
+    // faz put completo buscando os dados atuais
+    const e = await api.get('/saas/empresas/' + id);
+    await api.put('/saas/empresas/' + id, { ...e, status: ativo ? 'suspensa' : 'ativa' });
+    toast(ativo ? 'Empresa suspensa.' : 'Empresa reativada.');
+    saasLoadClientes();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function saasAlterarStatus(id, status) {
+  try {
+    // usa o endpoint de status específico via patch
+    await apiFetch('/saas/empresas/' + id + '/status', { method: 'PATCH', body: JSON.stringify({ status }) });
+    toast('Status alterado para ' + status);
+    const page = document.querySelector('.saas-page.active')?.id?.replace('page-','');
+    if (page === 'saas-cobranca') saasLoadCobranca();
+    else if (page === 'saas-clientes') saasLoadClientes();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+// ── Detalhe / Usuários da empresa ────────────────────────────────
+async function saasVerDetalhe(id) {
+  try {
+    const [e, usuarios] = await Promise.all([
+      api.get('/saas/empresas/' + id),
+      api.get('/saas/empresas/' + id + '/usuarios'),
+    ]);
+    document.getElementById('msd-titulo').innerHTML =
+      `<i class="fa-solid fa-building" style="color:var(--blue);margin-right:8px"></i>${e.razao_social}`;
+    document.getElementById('msd-info').innerHTML = `
+      <div><span style="font-size:11px;color:var(--text3)">Plano</span><div style="font-weight:600">${e.plano}</div></div>
+      <div><span style="font-size:11px;color:var(--text3)">Status</span><div><span class="badge ${e.status==='ativa'?'badge-green':e.status==='suspensa'?'badge-amber':'badge-red'}">${e.status}</span></div></div>
+      <div><span style="font-size:11px;color:var(--text3)">CNPJ</span><div>${e.cnpj||'—'}</div></div>
+      <div><span style="font-size:11px;color:var(--text3)">E-mail</span><div>${e.email||'—'}</div></div>
+      <div><span style="font-size:11px;color:var(--text3)">Vencimento</span><div>${e.data_vencimento?fmtD(e.data_vencimento):'—'}</div></div>
+      <div><span style="font-size:11px;color:var(--text3)">Trial</span><div style="color:${e.trial_expira_em?'var(--amber)':'inherit'}">${e.trial_expira_em?fmtD(e.trial_expira_em):'—'}</div></div>
+    `;
+    const tbody = document.getElementById('msd-usuarios-tbody');
+    if (!usuarios.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:12px">Nenhum usuário</td></tr>';
+    } else {
+      tbody.innerHTML = usuarios.map(u => `<tr>
+        <td style="font-weight:600">${u.nome}</td>
+        <td style="font-size:11px">${u.email}</td>
+        <td><span class="badge badge-blue" style="font-size:10px">${u.perfil}</span></td>
+        <td><span class="badge ${u.ativo?'badge-green':'badge-red'}" style="font-size:10px">${u.ativo?'Ativo':'Inativo'}</span></td>
+        <td><button class="btn btn-sm btn-secondary" onclick="saasAbrirResetSenha(${u.id})">Reset senha</button></td>
+      </tr>`).join('');
+    }
+    openModal('modal-saas-detalhe');
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+function saasAbrirResetSenha(uid) {
+  document.getElementById('mss-uid').value = uid;
+  document.getElementById('mss-senha').value = '';
+  openModal('modal-saas-senha');
+}
+async function saasResetSenha() {
+  const uid   = document.getElementById('mss-uid').value;
+  const senha = document.getElementById('mss-senha').value;
+  if (!senha || senha.length < 6) return toast('Senha mínimo 6 caracteres.', 'error');
+  setBtnLoading('mss-btn', true);
+  try {
+    await api.post('/saas/usuarios/' + uid + '/reset-senha', { nova_senha: senha });
+    toast('Senha redefinida com sucesso!');
+    closeModal('modal-saas-senha');
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    setBtnLoading('mss-btn', false);
+  }
+}
 </script>
 </body>
 </html>

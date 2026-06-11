@@ -7,15 +7,18 @@ const sql = driver === 'msnodesqlv8' ? require('mssql/msnodesqlv8') : require('m
 
 const server   = process.env.DB_SERVER   || (driver === 'tedious' ? 'localhost' : '.\\SQLEXPRESS');
 const database = process.env.DB_NAME     || 'GestorFlex';
-const user     = process.env.DB_USER     || 'sa';
+const user     = process.env.DB_USER     !== undefined ? process.env.DB_USER : 'sa';
 const password = process.env.DB_PASSWORD || '';
 const pool     = { max: 10, min: 0, idleTimeoutMillis: 30000 };
 
 let config;
 if (driver === 'msnodesqlv8') {
-  // Windows / ODBC
+  // Windows / ODBC — usa Trusted_Connection quando não há usuário definido
+  const authPart = user
+    ? `UID=${user};PWD=${password};`
+    : `Trusted_Connection=yes;`;
   config = {
-    connectionString: `Driver={ODBC Driver 17 for SQL Server};Server=${server};Database=${database};UID=${user};PWD=${password};`,
+    connectionString: `Driver={ODBC Driver 17 for SQL Server};Server=${server};Database=${database};${authPart}`,
     pool,
   };
 } else {

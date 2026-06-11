@@ -31,6 +31,7 @@ app.use('/api/admin',          require('./routes/admin'));
 app.use('/api/cnpj',           require('./routes/cnpj'));
 app.use('/api/grupos',         require('./routes/grupos'));
 app.use('/api/caixa',          require('./routes/caixa'));
+app.use('/api/saas',           require('./routes/saas'));
 
 // ── Handler de erros ────────────────────────────────────────────
 app.use((err, req, res, _next) => {
