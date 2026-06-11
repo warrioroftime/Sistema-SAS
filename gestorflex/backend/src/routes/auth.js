@@ -12,7 +12,7 @@ router.post('/login', async (req, res) => {
     if (!email || !senha) return res.status(400).json({ error: 'E-mail e senha obrigatórios.' });
 
     const result = await query(`
-      SELECT u.id, u.empresa_id, u.nome, u.email, u.senha_hash, u.perfil, u.ativo, u.foto,
+      SELECT u.id, u.empresa_id, u.nome, u.email, u.senha_hash, u.perfil, u.ativo, u.foto, u.tema,
              e.razao_social AS empresa_nome
       FROM Usuarios u
       JOIN Empresas e ON e.id = u.empresa_id
@@ -40,8 +40,8 @@ router.post('/login', async (req, res) => {
       expiresIn: process.env.JWT_EXPIRES_IN || '8h',
     });
 
-    // foto fora do JWT (base64 pode ser grande demais para o token)
-    res.json({ token, user: { ...payload, foto: user.foto || null } });
+    // foto e tema fora do JWT (foto é base64 grande demais; tema muda sem re-login)
+    res.json({ token, user: { ...payload, foto: user.foto || null, tema: user.tema || 'light' } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Erro interno.' });
@@ -51,6 +51,21 @@ router.post('/login', async (req, res) => {
 // GET /api/auth/me — retorna dados do usuário atual
 router.get('/me', auth, (req, res) => {
   res.json({ user: req.user });
+});
+
+// PUT /api/auth/tema — salva preferência de tema do usuário logado
+router.put('/tema', auth, async (req, res) => {
+  try {
+    const tema = req.body.tema === 'dark' ? 'dark' : 'light';
+    await query(
+      'UPDATE Usuarios SET tema = @tema WHERE id = @id AND empresa_id = @emp',
+      { tema, id: req.user.id, emp: req.user.empresa_id }
+    );
+    res.json({ ok: true, tema });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao salvar tema.' });
+  }
 });
 
 // POST /api/auth/trocar-senha

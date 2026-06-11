@@ -197,7 +197,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);background-at
 .btn-icon{padding:7px;border-radius:8px;background:transparent;border:1px solid transparent;cursor:pointer;color:var(--text3);display:inline-flex;align-items:center;justify-content:center;transition:all var(--dur) var(--ease);font-family:inherit}
 .btn-icon:hover{background:var(--blue-glass);color:var(--blue)}
 .dark-toggle{width:36px;height:36px;border-radius:9px;background:var(--surface);border:1px solid var(--border);backdrop-filter:blur(8px);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text3);transition:all var(--dur) var(--ease)}
-.dark-toggle{display:none!important}
+.dark-toggle:hover{background:var(--blue-glass);color:var(--blue)}
 
 /* ── CARDS ── */
 .card{background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid var(--glass-border);border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow);transition:box-shadow var(--dur) var(--ease)}
@@ -2868,6 +2868,7 @@ async function doLogin() {
     const data = await api.post('/auth/login', { email, senha });
     Auth.setToken(data.token);
     Auth.setUser(data.user);
+    applyTheme(data.user.tema === 'dark');
     hideLogin();
     if (data.user.perfil === 'saas') {
       saasEntrar(data.user);
@@ -6004,8 +6005,29 @@ async function confirmarResetSenha() {
   }
 }
 
-// ── MODO CLARO FIXO (dark mode desativado) ────────────────────────
-function toggleDarkMode() { /* tema fixo claro (branco e laranja) */ }
+// ── DARK MODE ────────────────────────────────────────────────────
+function applyTheme(dark) {
+  if (dark) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+  document.getElementById('icon-moon').style.display = dark ? 'none'  : '';
+  document.getElementById('icon-sun').style.display  = dark ? ''      : 'none';
+}
+
+async function toggleDarkMode() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const next = !isDark;
+  const temaStr = next ? 'dark' : 'light';
+  localStorage.setItem('gf_theme', temaStr);
+  applyTheme(next);
+  const user = Auth.getUser();
+  if (user) {
+    Auth.setUser({ ...user, tema: temaStr });
+    try { await api.put('/auth/tema', { tema: temaStr }); } catch (_) {}
+  }
+}
 
 // ── PAINEL SAAS — nomes de página (deve vir antes do init) ───────
 const saasPageNames = {
@@ -6020,9 +6042,10 @@ const saasPageNames = {
   // AOS
   if (window.AOS) AOS.init({ duration: 500, easing: 'ease-out-cubic', once: false, offset: 30 });
 
-  // Tema fixo claro (branco e laranja) — remove qualquer dark salvo
-  document.documentElement.removeAttribute('data-theme');
-  localStorage.removeItem('gf_theme');
+  // Aplica tema: prioridade ao banco (user.tema), fallback ao localStorage
+  const savedUser = Auth.getUser();
+  const temaInicial = savedUser?.tema ?? localStorage.getItem('gf_theme') ?? 'light';
+  applyTheme(temaInicial === 'dark');
   const user = Auth.getUser();
   const token = Auth.getToken();
   if (user && token) {
