@@ -5,7 +5,7 @@ const { auth } = require('../middleware/auth');
 const { checarLimite, checarArmazenamento } = require('../lib/limites');
 
 const BASE = `
-  SELECT p.id, p.codigo, p.descricao, c.nome AS categoria, p.categoria_id,
+  SELECT p.id, p.codigo, p.codigo_barras, p.descricao, c.nome AS categoria, p.categoria_id,
          p.preco_custo, p.preco_venda, p.estoque, p.estoque_min, p.status,
          p.controla_estoque, p.foto,
          p.criado_em, p.atualizado_em
@@ -22,7 +22,7 @@ router.get('/', auth, async (req, res) => {
     const params = { emp: req.user.empresa_id };
 
     if (busca) {
-      where += ` AND (p.descricao LIKE @busca OR p.codigo LIKE @busca)`;
+      where += ` AND (p.descricao LIKE @busca OR p.codigo LIKE @busca OR ISNULL(p.codigo_barras,'') LIKE @busca)`;
       params.busca = `%${busca}%`;
     }
     if (categoria) { where += ` AND c.nome = @cat`; params.cat = categoria; }
@@ -30,7 +30,7 @@ router.get('/', auth, async (req, res) => {
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
     const r = await query(`
-      SELECT p.id, p.codigo, p.descricao, c.nome AS categoria, p.categoria_id,
+      SELECT p.id, p.codigo, p.codigo_barras, p.descricao, c.nome AS categoria, p.categoria_id,
              p.preco_custo, p.preco_venda, p.estoque, p.estoque_min, p.status,
              p.controla_estoque, p.foto,
              p.criado_em, p.atualizado_em
@@ -83,7 +83,7 @@ router.get('/:id', auth, async (req, res) => {
 // POST /api/produtos
 router.post('/', auth, async (req, res) => {
   try {
-    let { codigo, descricao, categoria_id, preco_custo, preco_venda,
+    let { codigo, codigo_barras, descricao, categoria_id, preco_custo, preco_venda,
           estoque = 0, estoque_min = 5, status = 'ativo',
           controla_estoque = true, foto = null } = req.body;
 
@@ -113,22 +113,23 @@ router.post('/', auth, async (req, res) => {
     }
 
     const r = await query(`
-      INSERT INTO Produtos (empresa_id, codigo, descricao, categoria_id, preco_custo, preco_venda,
+      INSERT INTO Produtos (empresa_id, codigo, codigo_barras, descricao, categoria_id, preco_custo, preco_venda,
                             estoque, estoque_min, status, controla_estoque, foto)
       OUTPUT INSERTED.id
-      VALUES (@emp, @cod, @desc, @cat, @custo, @preco, @est, @min, @st, @ce, @foto)
+      VALUES (@emp, @cod, @barras, @desc, @cat, @custo, @preco, @est, @min, @st, @ce, @foto)
     `, {
-      emp:   req.user.empresa_id,
-      cod:   codigo,
-      desc:  descricao,
-      cat:   categoria_id || null,
-      custo: preco_custo  || 0,
-      preco: preco_venda,
-      est:   estoque,
-      min:   estoque_min,
-      st:    status,
-      ce:    controla_estoque !== false ? 1 : 0,
-      foto:  foto || null,
+      emp:    req.user.empresa_id,
+      cod:    codigo,
+      barras: codigo_barras ? String(codigo_barras).trim() : null,
+      desc:   descricao,
+      cat:    categoria_id || null,
+      custo:  preco_custo  || 0,
+      preco:  preco_venda,
+      est:    estoque,
+      min:    estoque_min,
+      st:     status,
+      ce:     controla_estoque !== false ? 1 : 0,
+      foto:   foto || null,
     });
 
     const newId = r.recordset[0].id;
@@ -157,7 +158,7 @@ router.post('/', auth, async (req, res) => {
 // PUT /api/produtos/:id
 router.put('/:id', auth, async (req, res) => {
   try {
-    const { codigo, descricao, categoria_id, preco_custo, preco_venda,
+    const { codigo, codigo_barras, descricao, categoria_id, preco_custo, preco_venda,
             estoque_min, status, controla_estoque, foto } = req.body;
     const id = parseInt(req.params.id);
 
@@ -181,28 +182,31 @@ router.put('/:id', auth, async (req, res) => {
 
     await query(`
       UPDATE Produtos SET
-        codigo           = COALESCE(@cod,  codigo),
-        descricao        = COALESCE(@desc, descricao),
-        categoria_id     = COALESCE(@cat,  categoria_id),
-        preco_custo      = COALESCE(@custo,preco_custo),
-        preco_venda      = COALESCE(@preco,preco_venda),
-        estoque_min      = COALESCE(@min,  estoque_min),
-        status           = COALESCE(@st,   status),
-        controla_estoque = COALESCE(@ce,   controla_estoque),
+        codigo           = COALESCE(@cod,    codigo),
+        codigo_barras    = CASE WHEN @barrasSet=1 THEN @barras ELSE codigo_barras END,
+        descricao        = COALESCE(@desc,   descricao),
+        categoria_id     = COALESCE(@cat,    categoria_id),
+        preco_custo      = COALESCE(@custo,  preco_custo),
+        preco_venda      = COALESCE(@preco,  preco_venda),
+        estoque_min      = COALESCE(@min,    estoque_min),
+        status           = COALESCE(@st,     status),
+        controla_estoque = COALESCE(@ce,     controla_estoque),
         foto             = CASE WHEN @foto IS NOT NULL THEN @foto ELSE foto END,
         atualizado_em    = GETDATE()
       WHERE id=@id AND empresa_id=@emp
     `, {
       id, emp: req.user.empresa_id,
-      cod:   codigo        ?? null,
-      desc:  descricao     ?? null,
-      cat:   categoria_id  ?? null,
-      custo: preco_custo   ?? null,
-      preco: preco_venda   ?? null,
-      min:   estoque_min   ?? null,
-      st:    status        ?? null,
-      ce:    controla_estoque !== undefined ? (controla_estoque !== false ? 1 : 0) : null,
-      foto:  foto !== undefined ? (foto || null) : null,
+      cod:       codigo        ?? null,
+      barrasSet: codigo_barras !== undefined ? 1 : 0,
+      barras:    codigo_barras !== undefined ? (codigo_barras ? String(codigo_barras).trim() : null) : null,
+      desc:      descricao     ?? null,
+      cat:       categoria_id  ?? null,
+      custo:     preco_custo   ?? null,
+      preco:     preco_venda   ?? null,
+      min:       estoque_min   ?? null,
+      st:        status        ?? null,
+      ce:        controla_estoque !== undefined ? (controla_estoque !== false ? 1 : 0) : null,
+      foto:      foto !== undefined ? (foto || null) : null,
     });
 
     const prod = await query(BASE + ' AND p.id=@id', { emp: req.user.empresa_id, id });

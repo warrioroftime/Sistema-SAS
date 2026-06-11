@@ -120,6 +120,7 @@ CREATE TABLE Produtos (
     id            INT IDENTITY(1,1) PRIMARY KEY,
     empresa_id    INT NOT NULL REFERENCES Empresas(id),
     codigo        NVARCHAR(30) NOT NULL,
+    codigo_barras NVARCHAR(50) NULL,
     descricao     NVARCHAR(200) NOT NULL,
     categoria_id  INT REFERENCES Categorias(id),
     preco_custo   DECIMAL(15,2) NOT NULL DEFAULT 0,
@@ -141,6 +142,8 @@ IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Produtos') A
   ALTER TABLE Produtos ADD controla_estoque BIT NOT NULL DEFAULT 1;
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Produtos') AND name='foto')
   ALTER TABLE Produtos ADD foto NVARCHAR(MAX) NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('Produtos') AND name='codigo_barras')
+  ALTER TABLE Produtos ADD codigo_barras NVARCHAR(50) NULL;
 GO
 
 -- ----------------------------------------------------------------

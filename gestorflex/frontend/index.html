@@ -766,6 +766,12 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
       <a class="nav-item" href="javascript:void(0)" onclick="navigate('contas-receber')">
         <i class="fa-solid fa-hand-holding-dollar"></i> Contas a Receber
       </a>
+      <a class="nav-item" href="javascript:void(0)" onclick="navigate('contas-pagar')">
+        <i class="fa-solid fa-file-invoice-dollar"></i> Contas a Pagar
+      </a>
+      <a class="nav-item" href="javascript:void(0)" onclick="navigate('despesas')">
+        <i class="fa-solid fa-receipt"></i> Lançamento de Despesas
+      </a>
       <a class="nav-item" href="javascript:void(0)" onclick="navigate('relatorios')">
         <i class="fa-solid fa-chart-bar"></i> Relatórios
       </a>
@@ -1471,6 +1477,345 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
       </div>
     </div>
 
+    <!-- CONTAS A PAGAR -->
+    <div id="page-contas-pagar" class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title"><i class="fa-solid fa-file-invoice-dollar"></i>Contas a Pagar</div>
+          <div class="page-sub"><i class="bi bi-truck"></i> Controle de contas com fornecedores</div>
+        </div>
+        <button class="btn btn-primary" onclick="cpAbrirLancamento()"><i class="fa-solid fa-plus"></i> Nova Conta</button>
+      </div>
+
+      <!-- Cards resumo -->
+      <div class="cr-summary">
+        <div class="cr-card">
+          <div class="cr-card-label"><i class="fa-solid fa-clock" style="color:var(--amber)"></i> A Pagar (em aberto)</div>
+          <div class="cr-card-value c-amber" id="cp-total-pen">R$ 0,00</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px" id="cp-qtd-pen">0 títulos</div>
+        </div>
+        <div class="cr-card">
+          <div class="cr-card-label"><i class="fa-solid fa-circle-check" style="color:var(--green)"></i> Pago</div>
+          <div class="cr-card-value c-green" id="cp-total-pago">R$ 0,00</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px" id="cp-qtd-pago">0 títulos</div>
+        </div>
+        <div class="cr-card">
+          <div class="cr-card-label"><i class="fa-solid fa-triangle-exclamation" style="color:var(--red)"></i> Vencido</div>
+          <div class="cr-card-value c-red" id="cp-total-atr">R$ 0,00</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px" id="cp-qtd-atr">0 títulos</div>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div class="card" style="margin-bottom:12px">
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <div class="form-group" style="margin:0;min-width:140px">
+            <label class="form-label">Status</label>
+            <select class="form-select" id="cp-f-status" onchange="loadContasPagar()">
+              <option value="">Todos</option>
+              <option value="pendente">Pendentes</option>
+              <option value="parcial">Parcialmente pagos</option>
+              <option value="vencido">Vencidos</option>
+              <option value="pago">Pagos</option>
+              <option value="cancelado">Cancelados</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Vencimento de</label>
+            <input type="date" class="form-input" id="cp-f-de" onchange="loadContasPagar()">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">até</label>
+            <input type="date" class="form-input" id="cp-f-ate" onchange="loadContasPagar()">
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:160px">
+            <label class="form-label">Fornecedor</label>
+            <input class="form-input" id="cp-f-busca" placeholder="Buscar fornecedor..." oninput="debounce(loadContasPagar,400)()">
+          </div>
+          <button class="btn btn-secondary" onclick="cpLimparFiltros()">Limpar</button>
+        </div>
+      </div>
+
+      <!-- Tabela -->
+      <div class="card">
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Documento</th><th>Fornecedor / Despesa</th><th>Categoria</th>
+                <th>Parcela</th><th>Vencimento</th><th>Valor</th>
+                <th>Em aberto</th><th>Status</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="cp-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- LANÇAMENTO DE DESPESAS -->
+    <div id="page-despesas" class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title"><i class="fa-solid fa-file-invoice"></i>Lançamento de Despesas</div>
+          <div class="page-sub"><i class="bi bi-lightning-charge"></i> Água, luz, aluguel e outras despesas operacionais</div>
+        </div>
+        <button class="btn btn-primary" onclick="dpAbrirLancamento()"><i class="fa-solid fa-plus"></i> Lançar Despesa</button>
+      </div>
+
+      <!-- Cards resumo -->
+      <div class="cr-summary">
+        <div class="cr-card">
+          <div class="cr-card-label"><i class="fa-solid fa-clock" style="color:var(--amber)"></i> A Pagar (em aberto)</div>
+          <div class="cr-card-value c-amber" id="dp-total-pen">R$ 0,00</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px" id="dp-qtd-pen">0 lançamentos</div>
+        </div>
+        <div class="cr-card">
+          <div class="cr-card-label"><i class="fa-solid fa-circle-check" style="color:var(--green)"></i> Pago</div>
+          <div class="cr-card-value c-green" id="dp-total-pago">R$ 0,00</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px" id="dp-qtd-pago">0 lançamentos</div>
+        </div>
+        <div class="cr-card">
+          <div class="cr-card-label"><i class="fa-solid fa-triangle-exclamation" style="color:var(--red)"></i> Vencido</div>
+          <div class="cr-card-value c-red" id="dp-total-atr">R$ 0,00</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px" id="dp-qtd-atr">0 lançamentos</div>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div class="card" style="margin-bottom:12px">
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <div class="form-group" style="margin:0;min-width:140px">
+            <label class="form-label">Status</label>
+            <select class="form-select" id="dp-f-status" onchange="loadDespesas()">
+              <option value="">Todos</option>
+              <option value="pendente">Pendentes</option>
+              <option value="parcial">Parcialmente pagos</option>
+              <option value="vencido">Vencidos</option>
+              <option value="pago">Pagos</option>
+              <option value="cancelado">Cancelados</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;min-width:155px">
+            <label class="form-label">Tipo de Despesa</label>
+            <select class="form-select" id="dp-f-cat" onchange="loadDespesas()">
+              <option value="">Todos</option>
+              <option>Água</option><option>Energia / Luz</option><option>Aluguel</option>
+              <option>Internet / Telefone</option><option>Salário / Pró-Labore</option>
+              <option>Impostos e Taxas</option><option>Manutenção</option>
+              <option>Material de Limpeza</option><option>Marketing / Publicidade</option>
+              <option>Transporte / Frete</option><option>Outros</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Vencimento de</label>
+            <input type="date" class="form-input" id="dp-f-de" onchange="loadDespesas()">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">até</label>
+            <input type="date" class="form-input" id="dp-f-ate" onchange="loadDespesas()">
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:150px">
+            <label class="form-label">Buscar</label>
+            <input class="form-input" id="dp-f-busca" placeholder="Credor, descrição..." oninput="debounce(loadDespesas,400)()">
+          </div>
+          <button class="btn btn-secondary" onclick="dpLimparFiltros()">Limpar</button>
+        </div>
+      </div>
+
+      <!-- Tabela -->
+      <div class="card">
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Tipo de Despesa</th><th>Credor</th><th>Referência</th>
+                <th>Parcela</th><th>Vencimento</th><th>Valor</th>
+                <th>Em aberto</th><th>Status</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="dp-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Pagar -->
+    <div class="modal-backdrop" id="modal-cp-pagar" onclick="if(event.target===this)closeModal('modal-cp-pagar')">
+      <div class="modal" style="max-width:420px">
+        <div class="modal-header">
+          <div class="modal-title"><i class="fa-solid fa-money-bill-wave" style="margin-right:8px;color:var(--green)"></i>Registrar Pagamento</div>
+          <button class="btn-icon" onclick="closeModal('modal-cp-pagar')">✕</button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="cp-pag-id">
+          <div style="background:var(--surface2);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px">
+            <div class="fw-600" id="cp-pag-titulo"></div>
+            <div class="c-text3 fs-12" style="margin-top:3px">Em aberto: <strong id="cp-pag-aberto" style="color:var(--amber)"></strong></div>
+          </div>
+          <div class="grid-2" style="gap:10px">
+            <div class="form-group">
+              <label class="form-label">Valor a pagar (R$) *</label>
+              <input class="form-input" type="number" id="cp-pag-valor" min="0.01" step="0.01" placeholder="0,00">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Data do pagamento</label>
+              <input class="form-input" type="date" id="cp-pag-data">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Forma de pagamento</label>
+            <select class="form-select" id="cp-pag-forma">
+              <option value="dinheiro">Dinheiro</option>
+              <option value="pix">Pix</option>
+              <option value="debito">Débito</option>
+              <option value="credito">Crédito</option>
+              <option value="transferencia">Transferência</option>
+              <option value="boleto">Boleto</option>
+              <option value="cheque">Cheque</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Observação (opcional)</label>
+            <input class="form-input" id="cp-pag-obs" placeholder="Ex: pagamento referente a fev/2025">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('modal-cp-pagar')">Cancelar</button>
+          <button class="btn btn-primary" id="cp-btn-confirmar-pag" onclick="cpConfirmarPagamento()"><i class="fa-solid fa-circle-check"></i> Confirmar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Detalhe -->
+    <div class="modal-backdrop" id="modal-cp-det" onclick="if(event.target===this)closeModal('modal-cp-det')">
+      <div class="modal" style="max-width:640px">
+        <div class="modal-header">
+          <div class="modal-title"><i class="fa-solid fa-clock-rotate-left" style="margin-right:8px;color:var(--blue)"></i>Detalhe da Conta</div>
+          <button class="btn-icon" onclick="closeModal('modal-cp-det')">✕</button>
+        </div>
+        <div class="modal-body" id="cp-det-body"><div class="spinner"></div></div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('modal-cp-det')">Fechar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Nova Conta a Pagar (Fornecedor) -->
+    <div class="modal-backdrop" id="modal-cp-lanc" onclick="if(event.target===this)closeModal('modal-cp-lanc')">
+      <div class="modal" style="max-width:480px">
+        <div class="modal-header">
+          <div class="modal-title"><i class="fa-solid fa-truck" style="margin-right:8px;color:var(--blue)"></i>Nova Conta — Fornecedor</div>
+          <button class="btn-icon" onclick="closeModal('modal-cp-lanc')">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Fornecedor *</label>
+            <input class="form-input" id="cpl-fornecedor" placeholder="Nome do fornecedor">
+          </div>
+          <div class="grid-2" style="gap:10px">
+            <div class="form-group">
+              <label class="form-label">Nº Nota Fiscal / Pedido</label>
+              <input class="form-input" id="cpl-doc" placeholder="NF-e, pedido, etc.">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Emissão</label>
+              <input class="form-input" type="date" id="cpl-emissao">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Descrição (opcional)</label>
+            <input class="form-input" id="cpl-descricao" placeholder="Ex: Compra de mercadorias, matéria-prima...">
+          </div>
+          <div class="grid-2" style="gap:10px">
+            <div class="form-group">
+              <label class="form-label">Valor total (R$) *</label>
+              <input class="form-input" type="number" id="cpl-valor" min="0.01" step="0.01" placeholder="0,00" oninput="cpLancPreview()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nº de parcelas</label>
+              <input class="form-input" type="number" id="cpl-parcelas" min="1" step="1" value="1" oninput="cpLancPreview()">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">1º vencimento *</label>
+            <input class="form-input" type="date" id="cpl-vencimento">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Observação (opcional)</label>
+            <input class="form-input" id="cpl-obs" placeholder="Condições, referências, etc.">
+          </div>
+          <div class="fs-12 c-text3" id="cpl-preview" style="margin-top:4px"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('modal-cp-lanc')">Cancelar</button>
+          <button class="btn btn-primary" id="cpl-btn" onclick="cpConfirmarLancamento()"><i class="fa-solid fa-circle-check"></i> Lançar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Lançamento de Despesa Operacional -->
+    <div class="modal-backdrop" id="modal-dp-lanc" onclick="if(event.target===this)closeModal('modal-dp-lanc')">
+      <div class="modal" style="max-width:460px">
+        <div class="modal-header">
+          <div class="modal-title"><i class="fa-solid fa-file-invoice" style="margin-right:8px;color:var(--amber)"></i>Lançar Despesa</div>
+          <button class="btn-icon" onclick="closeModal('modal-dp-lanc')">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Tipo de Despesa *</label>
+            <select class="form-select" id="dpl-cat">
+              <option value="">Selecione...</option>
+              <option>Água</option>
+              <option>Energia / Luz</option>
+              <option>Aluguel</option>
+              <option>Internet / Telefone</option>
+              <option>Salário / Pró-Labore</option>
+              <option>Impostos e Taxas</option>
+              <option>Manutenção</option>
+              <option>Material de Limpeza</option>
+              <option>Marketing / Publicidade</option>
+              <option>Transporte / Frete</option>
+              <option>Outros</option>
+            </select>
+          </div>
+          <div class="grid-2" style="gap:10px">
+            <div class="form-group">
+              <label class="form-label">Credor (opcional)</label>
+              <input class="form-input" id="dpl-credor" placeholder="Ex: Sabesp, Energisa, João">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Referência (opcional)</label>
+              <input class="form-input" id="dpl-ref" placeholder="Ex: Março/2025">
+            </div>
+          </div>
+          <div class="grid-2" style="gap:10px">
+            <div class="form-group">
+              <label class="form-label">Valor (R$) *</label>
+              <input class="form-input" type="number" id="dpl-valor" min="0.01" step="0.01" placeholder="0,00" oninput="dpLancPreview()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nº de parcelas</label>
+              <input class="form-input" type="number" id="dpl-parcelas" min="1" step="1" value="1" oninput="dpLancPreview()">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Vencimento *</label>
+            <input class="form-input" type="date" id="dpl-vencimento">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Observação (opcional)</label>
+            <input class="form-input" id="dpl-obs" placeholder="Detalhes adicionais">
+          </div>
+          <div class="fs-12 c-text3" id="dpl-preview" style="margin-top:4px"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeModal('modal-dp-lanc')">Cancelar</button>
+          <button class="btn btn-primary" id="dpl-btn" onclick="dpConfirmarLancamento()"><i class="fa-solid fa-circle-check"></i> Lançar</button>
+        </div>
+      </div>
+    </div>
+
     <!-- RELATÓRIOS -->
     <div id="page-relatorios" class="page">
       <div class="page-header">
@@ -2154,9 +2499,14 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
         </div>
         <!-- Campos principais -->
         <div style="display:flex;flex-direction:column;gap:0">
-          <div class="form-row cols-2">
-            <div class="form-group"><label class="form-label">Código</label><input class="form-input" id="mp-cod" placeholder="Automático"><div class="form-hint">Deixe em branco para gerar automaticamente</div></div>
-            <div class="form-group"><label class="form-label">Grupo</label><select class="form-select" id="mp-cat"></select></div>
+          <input type="hidden" id="mp-cod">
+          <div class="form-group"><label class="form-label">Grupo</label><select class="form-select" id="mp-cat"></select></div>
+          <div class="form-group">
+            <label class="form-label">Código de Barras</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input class="form-input" id="mp-barras" placeholder="Bipe ou digite o código de barras" style="flex:1">
+              <span style="color:var(--text3);font-size:18px" title="Bipe o produto aqui"><i class="fa-solid fa-barcode"></i></span>
+            </div>
           </div>
           <div class="form-group"><label class="form-label">Descrição *</label><input class="form-input" id="mp-desc" placeholder="Nome do produto"></div>
         </div>
@@ -2571,14 +2921,14 @@ function doLogout() {
 const pageNames = {
   dashboard:'Dashboard', pdv:'PDV — Ponto de Venda', caixa:'Caixa', vendas:'Nova Venda', historico:'Histórico de Vendas',
   produtos:'Produtos', grupos:'Grupos', clientes:'Clientes', estoque:'Posição do Estoque',
-  movimentacoes:'Movimentações', 'contas-receber':'Contas a Receber', relatorios:'Relatórios',
+  movimentacoes:'Movimentações', 'contas-receber':'Contas a Receber', 'contas-pagar':'Contas a Pagar', despesas:'Lançamento de Despesas', relatorios:'Relatórios',
   recibo:'Personalizar Recibo',
   empresas:'Empresas', 'adm-usuarios':'Usuários',
 };
 const pageLoaders = {
   dashboard: loadDashboard, pdv: loadPDV, caixa: loadCaixa, historico: loadHistorico, produtos: loadProdutos,
   grupos: loadGrupos, clientes: loadClientes, estoque: loadEstoque, movimentacoes: loadMovimentacoes,
-  'contas-receber': loadContasReceber, relatorios: loadRelatorios, recibo: loadReciboConfig,
+  'contas-receber': loadContasReceber, 'contas-pagar': loadContasPagar, despesas: loadDespesas, relatorios: loadRelatorios, recibo: loadReciboConfig,
   empresas: () => { loadEmpresas(); },
   'adm-usuarios': () => { loadEmpresasSelect(); loadAdmUsuarios(); },
 };
@@ -2813,6 +3163,7 @@ async function abrirModalProduto(id) {
     try {
       const p = await api.get('/produtos/' + id);
       document.getElementById('mp-cod').value    = p.codigo;
+      document.getElementById('mp-barras').value = p.codigo_barras || '';
       document.getElementById('mp-desc').value   = p.descricao;
       document.getElementById('mp-cat').value    = p.categoria_id || '';
       document.getElementById('mp-custo').value  = p.preco_custo;
@@ -2834,7 +3185,7 @@ async function abrirModalProduto(id) {
       }
     } catch (err) { toast(err.message,'error'); return; }
   } else {
-    ['mp-cod','mp-desc','mp-custo','mp-preco'].forEach(f => qs('#'+f).value = '');
+    ['mp-barras','mp-desc','mp-custo','mp-preco'].forEach(f => qs('#'+f).value = '');
     qs('#mp-estoque').value = '0';
     qs('#mp-min').value     = '5';
     qs('#mp-status').value  = 'ativo';
@@ -2893,7 +3244,8 @@ async function salvarProduto() {
   const id  = qsV('#mp-id');
   const ce  = document.getElementById('mp-controla-estoque').checked;
   const body = {
-    codigo:           qsV('#mp-cod').trim() || null,
+    codigo:           null,
+    codigo_barras:    qsV('#mp-barras').trim() || null,
     descricao:        qsV('#mp-desc').trim(),
     categoria_id:     parseInt(qsV('#mp-cat'))||null,
     preco_custo:      parseFloat(qsV('#mp-custo'))||0,
@@ -3531,7 +3883,7 @@ function pdvFiltrarCat(cat) {
   const busca = (document.getElementById('pdv-busca')?.value || '').toLowerCase();
   pdvRenderGrid(pdvProdutosAll.filter(p => {
     const mc = !cat || p.categoria === cat;
-    const mb = !busca || p.descricao.toLowerCase().includes(busca) || (p.codigo || '').toLowerCase().includes(busca);
+    const mb = !busca || p.descricao.toLowerCase().includes(busca) || (p.codigo || '').toLowerCase().includes(busca) || (p.codigo_barras || '').toLowerCase().includes(busca);
     return mc && mb;
   }));
 }
@@ -3541,7 +3893,7 @@ function pdvBuscar(q) {
   const ql = q.toLowerCase();
   pdvRenderGrid(pdvProdutosAll.filter(p => {
     const mc = !cat || p.categoria === cat;
-    const mb = !q || p.descricao.toLowerCase().includes(ql) || (p.codigo || '').toLowerCase().includes(ql);
+    const mb = !q || p.descricao.toLowerCase().includes(ql) || (p.codigo || '').toLowerCase().includes(ql) || (p.codigo_barras || '').toLowerCase().includes(ql);
     return mc && mb;
   }));
 }
@@ -3554,12 +3906,16 @@ function pdvBuscaKeydown(e) {
   const termo = inp.value.trim();
   if (!termo) return;
   const tl = termo.toLowerCase();
-  // 1) match exato por código (caso do leitor de código de barras)
-  let prod = pdvProdutosAll.find(p => (p.codigo || '').toLowerCase() === tl);
-  // 2) senão, se a busca atual filtrar para exatamente 1 produto, usa ele
+  // 1) match exato por código de barras (prioridade máxima — bipe do leitor)
+  let prod = pdvProdutosAll.find(p => (p.codigo_barras || '').toLowerCase() === tl);
+  // 2) match exato por código interno
+  if (!prod) prod = pdvProdutosAll.find(p => (p.codigo || '').toLowerCase() === tl);
+  // 3) senão, se a busca filtrar para exatamente 1 produto, usa ele
   if (!prod) {
     const matches = pdvProdutosAll.filter(p =>
-      p.descricao.toLowerCase().includes(tl) || (p.codigo || '').toLowerCase().includes(tl));
+      p.descricao.toLowerCase().includes(tl) ||
+      (p.codigo || '').toLowerCase().includes(tl) ||
+      (p.codigo_barras || '').toLowerCase().includes(tl));
     if (matches.length === 1) prod = matches[0];
   }
   if (!prod) { toast('Produto não encontrado: ' + termo, 'error'); return; }
@@ -4809,6 +5165,357 @@ function chartTema() {
     texto: cs.getPropertyValue('--text2').trim() || '#64748b',
     grid:  cs.getPropertyValue('--border').trim() || 'rgba(0,0,0,.08)',
   };
+}
+
+// ── CONTAS A PAGAR ────────────────────────────────────────────────
+let cpData = [];
+
+function cpStatusInfo(status, vencimento) {
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const venc = vencimento ? new Date(vencimento) : null;
+  if (venc) venc.setHours(0,0,0,0);
+  const vencido = venc && venc < hoje && ['pendente','parcial'].includes(status);
+  if (vencido) return { badge: '<span class="badge badge-red">Vencido</span>', aberto: true };
+  switch (status) {
+    case 'pendente':  return { badge: '<span class="badge badge-amber">Pendente</span>', aberto: true };
+    case 'parcial':   return { badge: '<span class="badge badge-blue">Parcial</span>',  aberto: true };
+    case 'pago':      return { badge: '<span class="badge badge-green">Pago</span>',    aberto: false };
+    case 'cancelado': return { badge: '<span class="badge badge-gray">Cancelado</span>',aberto: false };
+    default:          return { badge: `<span class="badge">${status}</span>`,           aberto: false };
+  }
+}
+
+async function loadContasPagar() {
+  const params = new URLSearchParams({
+    tipo:   'fornecedor',
+    status: document.getElementById('cp-f-status')?.value || '',
+    busca:  document.getElementById('cp-f-busca')?.value  || '',
+    de:     document.getElementById('cp-f-de')?.value     || '',
+    ate:    document.getElementById('cp-f-ate')?.value    || '',
+  });
+  document.getElementById('cp-tbody').innerHTML = '<tr class="loading-row"><td colspan="9"><div class="spinner"></div></td></tr>';
+  try {
+    const r = await api.get('/contas-pagar?' + params);
+    cpData = r.data || [];
+
+    document.getElementById('cp-total-pen').textContent  = R(r.total_aberto  || 0);
+    document.getElementById('cp-qtd-pen').textContent    = `${r.qtd_aberto   || 0} título${r.qtd_aberto  === 1 ? '' : 's'}`;
+    document.getElementById('cp-total-pago').textContent = R(r.total_pago    || 0);
+    document.getElementById('cp-qtd-pago').textContent   = `${r.qtd_pago     || 0} título${r.qtd_pago   === 1 ? '' : 's'}`;
+    document.getElementById('cp-total-atr').textContent  = R(r.total_vencido || 0);
+    document.getElementById('cp-qtd-atr').textContent    = `${r.qtd_vencido  || 0} título${r.qtd_vencido === 1 ? '' : 's'}`;
+
+    if (!cpData.length) {
+      document.getElementById('cp-tbody').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text3)">Nenhuma conta encontrada</td></tr>';
+      return;
+    }
+    document.getElementById('cp-tbody').innerHTML = cpData.map(t => {
+      const { badge, aberto } = cpStatusInfo(t.status, t.data_vencimento);
+      const hoje = new Date(); hoje.setHours(0,0,0,0);
+      const venc = t.data_vencimento ? new Date(t.data_vencimento) : null;
+      if (venc) venc.setHours(0,0,0,0);
+      const atrasado = venc && venc < hoje && aberto;
+      const vencFmt = venc ? venc.toLocaleDateString('pt-BR') : '—';
+      return `<tr>
+        <td>${t.numero_documento || '—'}</td>
+        <td>
+          <strong>${t.fornecedor}</strong>
+          ${t.descricao ? `<div style="font-size:11px;color:var(--text3)">${t.descricao}</div>` : ''}
+        </td>
+        <td>${t.categoria ? `<span class="badge badge-gray">${t.categoria}</span>` : '—'}</td>
+        <td style="white-space:nowrap">${t.parcela_num}/${t.parcelas_total}</td>
+        <td style="white-space:nowrap${atrasado ? ';color:var(--red);font-weight:600' : ''}">
+          ${vencFmt}
+          ${atrasado && t.dias_atraso ? `<div style="font-size:11px;color:var(--red)">${t.dias_atraso}d de atraso</div>` : ''}
+        </td>
+        <td style="white-space:nowrap">${R(t.valor)}</td>
+        <td style="white-space:nowrap">${aberto ? `<strong>${R(t.valor_aberto)}</strong>` : '—'}</td>
+        <td>${badge}</td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            ${aberto ? `<button class="btn btn-primary btn-sm" onclick="cpAbrirPagar(${t.id},'${(t.fornecedor+(t.descricao?' — '+t.descricao:'')).replace(/'/g,"\\'")}',${t.valor_aberto})">Pagar</button>` : ''}
+            <button class="btn btn-secondary btn-sm" onclick="cpAbrirDetalhe(${t.id})">Detalhe</button>
+            ${aberto ? `<button class="btn btn-sm" style="background:var(--red-light);color:var(--red);border:none" onclick="cpCancelar(${t.id})">Cancelar</button>` : ''}
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    toast(err.message, 'error');
+    document.getElementById('cp-tbody').innerHTML = '';
+  }
+}
+
+function cpRecarregar() {
+  if (document.getElementById('page-despesas')?.classList.contains('active')) loadDespesas();
+  else loadContasPagar();
+}
+
+function cpLimparFiltros() {
+  ['cp-f-status','cp-f-busca','cp-f-de','cp-f-ate'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  loadContasPagar();
+}
+
+// ── Pagar ──
+function cpAbrirPagar(id, titulo, aberto) {
+  document.getElementById('cp-pag-id').value            = id;
+  document.getElementById('cp-pag-titulo').textContent  = titulo;
+  document.getElementById('cp-pag-aberto').textContent  = R(aberto);
+  document.getElementById('cp-pag-valor').value         = '';
+  document.getElementById('cp-pag-forma').value         = 'dinheiro';
+  document.getElementById('cp-pag-data').value          = new Date().toISOString().slice(0,10);
+  document.getElementById('cp-pag-obs').value           = '';
+  openModal('modal-cp-pagar');
+}
+
+async function cpConfirmarPagamento() {
+  const id    = parseInt(document.getElementById('cp-pag-id').value);
+  const valor = parseFloat(document.getElementById('cp-pag-valor').value) || 0;
+  const forma = document.getElementById('cp-pag-forma').value;
+  const data  = document.getElementById('cp-pag-data').value;
+  const obs   = document.getElementById('cp-pag-obs').value.trim() || null;
+  if (valor <= 0) { toast('Informe o valor do pagamento.', 'error'); return; }
+  setBtnLoading('cp-btn-confirmar-pag', true);
+  try {
+    await api.post(`/contas-pagar/${id}/pagar`, { valor_pago: valor, forma_pagamento: forma, data_pagamento: data, observacao: obs });
+    toast('Pagamento registrado!');
+    closeModal('modal-cp-pagar');
+    cpRecarregar();
+  } catch (err) { toast(err.message, 'error'); }
+  finally { setBtnLoading('cp-btn-confirmar-pag', false); }
+}
+
+// ── Detalhe ──
+async function cpAbrirDetalhe(id) {
+  document.getElementById('cp-det-body').innerHTML = '<div class="spinner" style="margin:24px auto"></div>';
+  openModal('modal-cp-det');
+  try {
+    const r  = await api.get(`/contas-pagar/${id}`);
+    const t  = r.titulo;
+    const ps = r.pagamentos || [];
+    const { badge } = cpStatusInfo(t.status, t.data_vencimento);
+    const vencFmt = t.data_vencimento ? new Date(t.data_vencimento).toLocaleDateString('pt-BR') : '—';
+    const emisFmt = t.data_emissao    ? new Date(t.data_emissao).toLocaleDateString('pt-BR')    : '—';
+    document.getElementById('cp-det-body').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:16px;font-size:13px">
+        <div><span style="color:var(--text3)">Fornecedor:</span> <strong>${t.fornecedor}</strong></div>
+        <div><span style="color:var(--text3)">Categoria:</span> ${t.categoria || '—'}</div>
+        <div style="grid-column:1/-1"><span style="color:var(--text3)">Descrição:</span> ${t.descricao || '—'}</div>
+        <div><span style="color:var(--text3)">Documento:</span> ${t.numero_documento || '—'}</div>
+        <div><span style="color:var(--text3)">Emissão:</span> ${emisFmt}</div>
+        <div><span style="color:var(--text3)">Vencimento:</span> ${vencFmt}</div>
+        <div><span style="color:var(--text3)">Valor:</span> <strong>${R(t.valor)}</strong></div>
+        <div><span style="color:var(--text3)">Em aberto:</span> <strong style="color:var(--amber)">${R(t.valor_aberto)}</strong></div>
+        <div><span style="color:var(--text3)">Parcela:</span> ${t.parcela_num}/${t.parcelas_total}</div>
+        <div><span style="color:var(--text3)">Status:</span> ${badge}</div>
+        ${t.observacao ? `<div style="grid-column:1/-1"><span style="color:var(--text3)">Obs.:</span> ${t.observacao}</div>` : ''}
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">
+        <i class="fa-solid fa-clock-rotate-left" style="margin-right:6px"></i>Histórico de Pagamentos
+      </div>
+      ${ps.length ? `<div class="table-wrap"><table class="data"><thead><tr>
+        <th>Data</th><th>Valor</th><th>Forma</th><th>Operador</th><th>Obs.</th><th></th>
+      </tr></thead><tbody>
+        ${ps.map(p => `<tr style="${p.estornado ? 'opacity:.45;text-decoration:line-through' : ''}">
+          <td>${p.data_pagamento ? new Date(p.data_pagamento).toLocaleDateString('pt-BR') : '—'}</td>
+          <td>${R(p.valor_pago)}</td>
+          <td>${p.forma_pagamento}</td>
+          <td>${p.operador || '—'}</td>
+          <td>${p.observacao || '—'}</td>
+          <td>${!p.estornado ? `<button class="btn btn-sm" style="background:var(--red-light);color:var(--red);border:none" onclick="cpEstornar(${p.id})">Estornar</button>` : '<span class="badge badge-gray">Estornado</span>'}</td>
+        </tr>`).join('')}
+      </tbody></table></div>`
+      : '<div style="text-align:center;padding:20px;color:var(--text3)">Nenhum pagamento registrado</div>'}`;
+  } catch (err) {
+    document.getElementById('cp-det-body').innerHTML = `<div style="color:var(--red);padding:16px">${err.message}</div>`;
+  }
+}
+
+async function cpEstornar(pagId) {
+  if (!confirm('Deseja estornar este pagamento?')) return;
+  try {
+    await api.post(`/contas-pagar/pagamentos/${pagId}/estornar`);
+    toast('Pagamento estornado.');
+    closeModal('modal-cp-det');
+    cpRecarregar();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function cpCancelar(id) {
+  if (!confirm('Cancelar esta conta a pagar?')) return;
+  try {
+    await api.put(`/contas-pagar/${id}/cancelar`);
+    toast('Conta cancelada.');
+    cpRecarregar();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function cpAbrirLancamento() {
+  ['cpl-fornecedor','cpl-descricao','cpl-doc','cpl-obs','cpl-valor'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('cpl-parcelas').value = '1';
+  document.getElementById('cpl-emissao').value  = new Date().toISOString().slice(0,10);
+  const venc = new Date(); venc.setDate(venc.getDate() + 30);
+  document.getElementById('cpl-vencimento').value    = venc.toISOString().slice(0,10);
+  document.getElementById('cpl-preview').textContent = '';
+  openModal('modal-cp-lanc');
+}
+
+function cpLancPreview() {
+  const valor    = parseFloat(document.getElementById('cpl-valor').value) || 0;
+  const parcelas = Math.max(parseInt(document.getElementById('cpl-parcelas').value) || 1, 1);
+  const prev     = document.getElementById('cpl-preview');
+  if (!valor || parcelas < 2) { prev.textContent = ''; return; }
+  const vp = (valor / parcelas).toFixed(2);
+  prev.textContent = `${parcelas}x de R$ ${vp.replace('.',',')} = R$ ${valor.toFixed(2).replace('.',',')}`;
+}
+
+async function cpConfirmarLancamento() {
+  const fornecedor = document.getElementById('cpl-fornecedor').value.trim();
+  const valor      = parseFloat(document.getElementById('cpl-valor').value) || 0;
+  const vencimento = document.getElementById('cpl-vencimento').value;
+  if (!fornecedor) { toast('Informe o fornecedor.', 'error'); return; }
+  if (valor <= 0)  { toast('Informe um valor maior que zero.', 'error'); return; }
+  if (!vencimento) { toast('Informe o vencimento.', 'error'); return; }
+  setBtnLoading('cpl-btn', true);
+  try {
+    await api.post('/contas-pagar', {
+      tipo:             'fornecedor',
+      fornecedor,
+      descricao:        document.getElementById('cpl-descricao').value.trim() || null,
+      numero_documento: document.getElementById('cpl-doc').value.trim() || null,
+      observacao:       document.getElementById('cpl-obs').value.trim() || null,
+      valor_total:      valor,
+      parcelas:         Math.max(parseInt(document.getElementById('cpl-parcelas').value) || 1, 1),
+      data_emissao:     document.getElementById('cpl-emissao').value || null,
+      data_vencimento:  vencimento,
+    });
+    toast('Conta lançada!');
+    closeModal('modal-cp-lanc');
+    loadContasPagar();
+  } catch (err) { toast(err.message, 'error'); }
+  finally { setBtnLoading('cpl-btn', false); }
+}
+
+// ── LANÇAMENTO DE DESPESAS ────────────────────────────────────────
+let dpData = [];
+
+async function loadDespesas() {
+  const params = new URLSearchParams({
+    tipo:      'despesa',
+    status:    document.getElementById('dp-f-status')?.value || '',
+    categoria: document.getElementById('dp-f-cat')?.value    || '',
+    busca:     document.getElementById('dp-f-busca')?.value  || '',
+    de:        document.getElementById('dp-f-de')?.value     || '',
+    ate:       document.getElementById('dp-f-ate')?.value    || '',
+  });
+  document.getElementById('dp-tbody').innerHTML = '<tr class="loading-row"><td colspan="9"><div class="spinner"></div></td></tr>';
+  try {
+    const r = await api.get('/contas-pagar?' + params);
+    dpData = r.data || [];
+
+    document.getElementById('dp-total-pen').textContent  = R(r.total_aberto  || 0);
+    document.getElementById('dp-qtd-pen').textContent    = `${r.qtd_aberto   || 0} lançamento${r.qtd_aberto  === 1 ? '' : 's'}`;
+    document.getElementById('dp-total-pago').textContent = R(r.total_pago    || 0);
+    document.getElementById('dp-qtd-pago').textContent   = `${r.qtd_pago     || 0} lançamento${r.qtd_pago   === 1 ? '' : 's'}`;
+    document.getElementById('dp-total-atr').textContent  = R(r.total_vencido || 0);
+    document.getElementById('dp-qtd-atr').textContent    = `${r.qtd_vencido  || 0} lançamento${r.qtd_vencido === 1 ? '' : 's'}`;
+
+    if (!dpData.length) {
+      document.getElementById('dp-tbody').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text3)">Nenhuma despesa encontrada</td></tr>';
+      return;
+    }
+    document.getElementById('dp-tbody').innerHTML = dpData.map(t => {
+      const { badge, aberto } = cpStatusInfo(t.status, t.data_vencimento);
+      const hoje = new Date(); hoje.setHours(0,0,0,0);
+      const venc = t.data_vencimento ? new Date(t.data_vencimento) : null;
+      if (venc) venc.setHours(0,0,0,0);
+      const atrasado = venc && venc < hoje && aberto;
+      const vencFmt = venc ? venc.toLocaleDateString('pt-BR') : '—';
+      const tituloInline = (t.categoria + (t.fornecedor && t.fornecedor !== t.categoria ? ' — ' + t.fornecedor : '')).replace(/'/g, "\\'");
+      return `<tr>
+        <td><span class="badge badge-amber" style="white-space:nowrap">${t.categoria || '—'}</span></td>
+        <td>${t.fornecedor && t.fornecedor !== t.categoria ? t.fornecedor : '—'}</td>
+        <td style="color:var(--text3);font-size:12px">${t.numero_documento || '—'}</td>
+        <td style="white-space:nowrap">${t.parcela_num}/${t.parcelas_total}</td>
+        <td style="white-space:nowrap${atrasado ? ';color:var(--red);font-weight:600' : ''}">
+          ${vencFmt}
+          ${atrasado && t.dias_atraso ? `<div style="font-size:11px;color:var(--red)">${t.dias_atraso}d atraso</div>` : ''}
+        </td>
+        <td style="white-space:nowrap">${R(t.valor)}</td>
+        <td style="white-space:nowrap">${aberto ? `<strong>${R(t.valor_aberto)}</strong>` : '—'}</td>
+        <td>${badge}</td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            ${aberto ? `<button class="btn btn-primary btn-sm" onclick="cpAbrirPagar(${t.id},'${tituloInline}',${t.valor_aberto})">Pagar</button>` : ''}
+            <button class="btn btn-secondary btn-sm" onclick="cpAbrirDetalhe(${t.id})">Detalhe</button>
+            ${aberto ? `<button class="btn btn-sm" style="background:var(--red-light);color:var(--red);border:none" onclick="cpCancelar(${t.id})">Cancelar</button>` : ''}
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    toast(err.message, 'error');
+    document.getElementById('dp-tbody').innerHTML = '';
+  }
+}
+
+function dpLimparFiltros() {
+  ['dp-f-status','dp-f-cat','dp-f-busca','dp-f-de','dp-f-ate'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  loadDespesas();
+}
+
+function dpAbrirLancamento() {
+  ['dpl-credor','dpl-ref','dpl-obs','dpl-valor'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('dpl-cat').value      = '';
+  document.getElementById('dpl-parcelas').value = '1';
+  const venc = new Date(); venc.setDate(venc.getDate() + 30);
+  document.getElementById('dpl-vencimento').value    = venc.toISOString().slice(0,10);
+  document.getElementById('dpl-preview').textContent = '';
+  openModal('modal-dp-lanc');
+}
+
+function dpLancPreview() {
+  const valor    = parseFloat(document.getElementById('dpl-valor').value) || 0;
+  const parcelas = Math.max(parseInt(document.getElementById('dpl-parcelas').value) || 1, 1);
+  const prev     = document.getElementById('dpl-preview');
+  if (!valor || parcelas < 2) { prev.textContent = ''; return; }
+  const vp = (valor / parcelas).toFixed(2);
+  prev.textContent = `${parcelas}x de R$ ${vp.replace('.',',')} = R$ ${valor.toFixed(2).replace('.',',')}`;
+}
+
+async function dpConfirmarLancamento() {
+  const cat      = document.getElementById('dpl-cat').value;
+  const credor   = document.getElementById('dpl-credor').value.trim();
+  const valor    = parseFloat(document.getElementById('dpl-valor').value) || 0;
+  const venc     = document.getElementById('dpl-vencimento').value;
+  if (!cat)   { toast('Selecione o tipo de despesa.', 'error'); return; }
+  if (valor <= 0) { toast('Informe um valor maior que zero.', 'error'); return; }
+  if (!venc)  { toast('Informe o vencimento.', 'error'); return; }
+  setBtnLoading('dpl-btn', true);
+  try {
+    await api.post('/contas-pagar', {
+      tipo:             'despesa',
+      fornecedor:       credor || cat,
+      categoria:        cat,
+      numero_documento: document.getElementById('dpl-ref').value.trim() || null,
+      observacao:       document.getElementById('dpl-obs').value.trim() || null,
+      valor_total:      valor,
+      parcelas:         Math.max(parseInt(document.getElementById('dpl-parcelas').value) || 1, 1),
+      data_vencimento:  venc,
+    });
+    toast('Despesa lançada!');
+    closeModal('modal-dp-lanc');
+    loadDespesas();
+  } catch (err) { toast(err.message, 'error'); }
+  finally { setBtnLoading('dpl-btn', false); }
 }
 
 async function loadRelatorios() {
