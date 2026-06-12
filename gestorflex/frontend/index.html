@@ -265,6 +265,29 @@ table.data tbody tr:hover td{background:rgba(234,88,12,.04)}
 .page-sub{font-size:13px;color:var(--text2);margin-top:3px}
 .section-title{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
 
+/* ── SELETOR DE RELATÓRIOS (cards) ── */
+.rel-sel-atual{display:flex;align-items:center;gap:11px;cursor:pointer;min-width:0;flex:1}
+.rel-sel-ic{flex-shrink:0;width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;box-shadow:0 4px 10px rgba(0,0,0,.12)}
+.rel-sel-tx{min-width:0}
+.rel-sel-lb{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.1em}
+.rel-sel-tt{font-weight:700;font-size:14px;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rel-busca-wrap{position:relative;margin-bottom:12px}
+.rel-busca-wrap > i{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:13px;pointer-events:none}
+.rel-busca-wrap input{padding-left:36px;padding-right:36px}
+.rel-busca-wrap #rel-busca-x{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;padding:4px 6px;font-size:13px;display:none}
+.rel-busca-wrap #rel-busca-x:hover{color:var(--primary)}
+.rel-busca-wrap.has-text #rel-busca-x{display:block}
+.rel-tipos{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.rel-vazio{grid-column:1/-1;text-align:center;color:var(--text3);font-size:13px;padding:20px}
+.rel-card{position:relative;display:flex;align-items:flex-start;gap:12px;padding:14px;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--surface2);cursor:pointer;text-align:left;transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease),border-color var(--dur) var(--ease)}
+.rel-card:hover{transform:translateY(-3px);box-shadow:var(--shadow);border-color:var(--primary)}
+.rel-card.active{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary) inset,var(--shadow)}
+.rel-card.active::after{content:"\f00c";font-family:"Font Awesome 6 Free";font-weight:900;position:absolute;top:10px;right:12px;font-size:11px;color:var(--primary)}
+.rel-card-ic{flex-shrink:0;width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;box-shadow:0 4px 10px rgba(0,0,0,.12)}
+.rel-card-tx{min-width:0}
+.rel-card-tt{font-weight:700;font-size:13px;color:var(--text);margin-bottom:2px;line-height:1.25}
+.rel-card-ds{font-size:11px;color:var(--text3);line-height:1.35}
+
 /* ── TOOLBAR ── */
 .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
 .search-input{position:relative;flex:1;min-width:200px}
@@ -1855,21 +1878,53 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
       <div class="page-header">
         <div><div class="page-title"><i class="fa-solid fa-chart-bar"></i>Relatórios</div><div class="page-sub"><i class="bi bi-graph-up-arrow"></i> Análises gerenciais</div></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <input type="date" class="form-input" id="r-de" style="width:140px">
-          <input type="date" class="form-input" id="r-ate" style="width:140px">
-          <button class="btn btn-primary" onclick="loadRelatorios()"><i class="fa-solid fa-play"></i> Gerar</button>
+          <input type="date" class="form-input" id="r-de" style="width:140px" title="Data inicial">
+          <input type="date" class="form-input" id="r-ate" style="width:140px" title="Data final">
+          <button class="btn btn-primary" onclick="relGerar()"><i class="fa-solid fa-play"></i> Gerar</button>
           <button class="btn btn-secondary" onclick="exportRelatorioExcel()" title="Exportar para Excel"><i class="fa-solid fa-file-excel" style="color:var(--green)"></i> Excel</button>
           <button class="btn btn-secondary" onclick="exportRelatorioPDF()" title="Exportar para PDF"><i class="fa-solid fa-file-pdf" style="color:var(--red)"></i> PDF</button>
         </div>
       </div>
-      <div class="grid-2">
-        <div class="card"><div class="section-title"><i class="fa-solid fa-credit-card" style="color:var(--purple);margin-right:6px"></i>Vendas por Pagamento</div><div style="height:260px;position:relative"><canvas id="r-pgto-chart"></canvas></div></div>
-        <div class="card"><div class="section-title"><i class="fa-solid fa-trophy" style="color:var(--amber);margin-right:6px"></i>Top 5 Produtos</div><div style="height:260px;position:relative"><canvas id="r-top-chart"></canvas></div></div>
+
+      <!-- Seletor de tipos de relatório (recolhível) -->
+      <div class="card" style="padding:12px 14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div id="rel-sel-atual" class="rel-sel-atual" onclick="relToggleSel()"></div>
+          <button class="btn btn-secondary btn-sm" id="rel-toggle-btn" type="button" onclick="relToggleSel()">
+            <i class="fa-solid fa-grip"></i> Trocar relatório
+          </button>
+        </div>
+        <div id="rel-expand" style="display:none;margin-top:12px">
+          <div class="rel-busca-wrap">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="rel-busca" class="form-input" type="text" autocomplete="off"
+                   placeholder="Pesquisar relatório (ex.: vendas, estoque, caixa, clientes)…"
+                   oninput="renderRelTipos()">
+            <button id="rel-busca-x" type="button" title="Limpar" onclick="relLimparBusca()"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div id="rel-tipos" class="rel-tipos"><div class="spinner"></div></div>
+        </div>
       </div>
-      <div class="card mt-16"><div class="section-title"><i class="fa-solid fa-coins" style="color:var(--green);margin-right:6px"></i>Resumo Financeiro</div><div class="grid-4" id="r-resumo"></div></div>
-      <div class="card mt-16">
-        <div class="section-title"><i class="fa-solid fa-calendar-days" style="color:var(--blue);margin-right:6px"></i>Extrato Diário</div>
-        <div class="table-wrap"><table class="data"><thead><tr><th>Data</th><th>Qtd. Vendas</th><th>Total</th></tr></thead><tbody id="r-extrato"></tbody></table></div>
+
+      <!-- Cabeçalho do relatório selecionado -->
+      <div id="rel-head" class="mt-16" style="display:none">
+        <div class="section-title" style="margin-bottom:2px"><i class="fa-solid fa-file-lines" style="color:var(--primary);margin-right:6px"></i><span id="rel-titulo"></span></div>
+        <div class="fs-12 c-text3" id="rel-desc"></div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="grid-4 mt-16" id="rel-kpis"></div>
+
+      <!-- Gráfico (opcional) -->
+      <div class="card mt-16" id="rel-grafico-card" style="display:none">
+        <div class="section-title" id="rel-grafico-titulo"><i class="fa-solid fa-chart-pie" style="color:var(--purple);margin-right:6px"></i>Gráfico</div>
+        <div style="height:300px;position:relative"><canvas id="rel-chart"></canvas></div>
+      </div>
+
+      <!-- Tabela -->
+      <div class="card mt-16" id="rel-tabela-card" style="display:none">
+        <div class="section-title"><i class="fa-solid fa-table-list" style="color:var(--blue);margin-right:6px"></i>Detalhamento <span class="c-text3" id="rel-tabela-count" style="font-weight:400;text-transform:none;letter-spacing:0"></span></div>
+        <div class="table-wrap"><table class="data"><thead id="rel-thead"></thead><tbody id="rel-tbody"></tbody></table></div>
       </div>
     </div>
 
@@ -5334,8 +5389,43 @@ async function crConfirmarLancamento() {
 
 // ── RELATÓRIOS ────────────────────────────────────────────────────
 let relatorioData = null;          // último relatório carregado (p/ exportar)
-let chartPgto = null, chartTop = null;
+let relChart = null;               // instância do gráfico atual
+let relTipoAtual = 'vendas';       // relatório selecionado
+let relTiposCache = null;          // lista de tipos (cache)
+let relSelOpen = false;            // grade de seleção expandida?
 const CHART_CORES = ['#ea580c','#0ea5e9','#16a34a','#eab308','#db2777','#8b5cf6','#14b8a6','#f43f5e'];
+
+// Ícone + cor por tipo de relatório (cards do seletor)
+const REL_ICONES = {
+  'vendas':'fa-cart-shopping', 'vendas-detalhadas':'fa-receipt', 'faturamento-mensal':'fa-chart-line',
+  'vendas-pagamento':'fa-credit-card', 'vendas-categoria':'fa-layer-group', 'vendas-operador':'fa-user-tie',
+  'vendas-horario':'fa-clock', 'vendas-dia-semana':'fa-calendar-week',
+  'produtos-mais-vendidos':'fa-trophy', 'produtos-menos-vendidos':'fa-arrow-trend-down',
+  'curva-abc':'fa-ranking-star', 'lucratividade':'fa-coins', 'margem-categoria':'fa-percent',
+  'estoque':'fa-boxes-stacked', 'estoque-baixo':'fa-triangle-exclamation',
+  'estoque-parado':'fa-box-open', 'estoque-categoria':'fa-cubes',
+  'contas-receber':'fa-hand-holding-dollar', 'aging-receber':'fa-hourglass-half',
+  'contas-pagar':'fa-file-invoice-dollar',
+  'recebimentos':'fa-money-bill-wave', 'pagamentos':'fa-money-check-dollar',
+  'despesas-categoria':'fa-tags', 'caixa':'fa-cash-register', 'movimentacoes-caixa':'fa-money-bill-transfer',
+  'clientes':'fa-users', 'clientes-inativos':'fa-user-clock', 'novos-clientes':'fa-user-plus',
+  'movimentacoes':'fa-right-left', 'fluxo-caixa':'fa-scale-balanced', 'dre':'fa-file-invoice',
+};
+const REL_CORES = {
+  'vendas':'#ea580c', 'vendas-detalhadas':'#fb7185', 'faturamento-mensal':'#0ea5e9',
+  'vendas-pagamento':'#8b5cf6', 'vendas-categoria':'#d946ef', 'vendas-operador':'#0284c7',
+  'vendas-horario':'#f59e0b', 'vendas-dia-semana':'#8b5cf6',
+  'produtos-mais-vendidos':'#eab308', 'produtos-menos-vendidos':'#f43f5e',
+  'curva-abc':'#e11d48', 'lucratividade':'#16a34a', 'margem-categoria':'#15803d',
+  'estoque':'#0ea5e9', 'estoque-baixo':'#ef4444',
+  'estoque-parado':'#a16207', 'estoque-categoria':'#0891b2',
+  'contas-receber':'#10b981', 'aging-receber':'#dc2626',
+  'contas-pagar':'#f97316',
+  'recebimentos':'#22c55e', 'pagamentos':'#fb7185',
+  'despesas-categoria':'#fb923c', 'caixa':'#06b6d4', 'movimentacoes-caixa':'#7c3aed',
+  'clientes':'#6366f1', 'clientes-inativos':'#94a3b8', 'novos-clientes':'#22c55e',
+  'movimentacoes':'#14b8a6', 'fluxo-caixa':'#a855f7', 'dre':'#4f46e5',
+};
 
 function chartTema() {
   const cs = getComputedStyle(document.body);
@@ -5696,156 +5786,280 @@ async function dpConfirmarLancamento() {
   finally { setBtnLoading('dpl-btn', false); }
 }
 
+// Formata um valor conforme o tipo declarado pela coluna/KPI
+function relFmt(tipo, v) {
+  if (v === null || v === undefined || v === '') return '—';
+  switch (tipo) {
+    case 'moeda': return R(v);
+    case 'num':   return Number(v).toLocaleString('pt-BR');
+    case 'pct':   return Number(v).toFixed(1).replace('.', ',') + '%';
+    case 'data':  return fmtD(v);
+    default:      return String(v);
+  }
+}
+
+// Inicialização da página de relatórios (chamada pelo PAGE_LOADERS)
 async function loadRelatorios() {
   const now = new Date();
-  const de30 = new Date(now); de30.setDate(de30.getDate()-30);
+  const de30 = new Date(now); de30.setDate(de30.getDate() - 30);
   if (!qsV('#r-de'))  qs('#r-de').value  = de30.toISOString().split('T')[0];
   if (!qsV('#r-ate')) qs('#r-ate').value = now.toISOString().split('T')[0];
 
-  const params = new URLSearchParams({ de: qsV('#r-de'), ate: qsV('#r-ate') });
-  try {
-    const r = await api.get('/relatorios/vendas?' + params);
-    relatorioData = { ...r, periodo: { de: qsV('#r-de'), ate: qsV('#r-ate') } };
-    const tema = chartTema();
+  if (!relTiposCache) {
+    try { relTiposCache = await api.get('/relatorios/tipos'); }
+    catch (err) { toast(err.message, 'error'); return; }
+  }
+  renderRelTipos();
+  renderRelSelAtual();
+  relGerar();
+}
 
-    // Gráfico: Vendas por pagamento (rosca)
-    const pgto = r.por_pagamento || [];
-    if (chartPgto) chartPgto.destroy();
-    chartPgto = new Chart(document.getElementById('r-pgto-chart'), {
+// normaliza texto p/ busca (sem acentos, minúsculo)
+const relNorm = s => (s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+
+function renderRelTipos() {
+  const termo = relNorm(qsV('#rel-busca'));
+  const wrap = qs('.rel-busca-wrap');
+  if (wrap) wrap.classList.toggle('has-text', !!termo);
+
+  const lista = (relTiposCache || []).filter(t =>
+    !termo || relNorm(t.titulo).includes(termo) || relNorm(t.descricao).includes(termo));
+
+  if (!lista.length) {
+    qs('#rel-tipos').innerHTML = `<div class="rel-vazio"><i class="fa-solid fa-magnifying-glass"></i> Nenhum relatório encontrado para “${qsV('#rel-busca')}”.</div>`;
+    return;
+  }
+  qs('#rel-tipos').innerHTML = lista.map(t => {
+    const cor = REL_CORES[t.id] || 'var(--primary)';
+    return `
+    <div class="rel-card ${t.id === relTipoAtual ? 'active' : ''}" onclick="relSelecionar('${t.id}')">
+      <div class="rel-card-ic" style="background:${cor}"><i class="fa-solid ${REL_ICONES[t.id] || 'fa-file-lines'}"></i></div>
+      <div class="rel-card-tx">
+        <div class="rel-card-tt">${t.titulo}</div>
+        <div class="rel-card-ds">${t.descricao}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function relLimparBusca() {
+  if (qs('#rel-busca')) qs('#rel-busca').value = '';
+  renderRelTipos();
+  qs('#rel-busca')?.focus();
+}
+
+// Resumo compacto do relatório selecionado (mostrado quando a grade está recolhida)
+function renderRelSelAtual() {
+  const t = (relTiposCache || []).find(x => x.id === relTipoAtual);
+  if (!t) return;
+  const cor = REL_CORES[t.id] || 'var(--primary)';
+  qs('#rel-sel-atual').innerHTML = `
+    <div class="rel-sel-ic" style="background:${cor}"><i class="fa-solid ${REL_ICONES[t.id] || 'fa-file-lines'}"></i></div>
+    <div class="rel-sel-tx">
+      <div class="rel-sel-lb">Relatório</div>
+      <div class="rel-sel-tt">${t.titulo}</div>
+    </div>`;
+}
+
+// Expande/recolhe o painel de seleção (busca + grade de cards)
+function relToggleSel(force) {
+  relSelOpen = force === undefined ? !relSelOpen : force;
+  qs('#rel-expand').style.display = relSelOpen ? 'block' : 'none';
+  qs('#rel-toggle-btn').innerHTML = relSelOpen
+    ? '<i class="fa-solid fa-xmark"></i> Fechar'
+    : '<i class="fa-solid fa-grip"></i> Trocar relatório';
+  if (relSelOpen) setTimeout(() => qs('#rel-busca')?.focus(), 30);
+}
+
+function relSelecionar(tipo) {
+  relTipoAtual = tipo;
+  renderRelTipos();
+  renderRelSelAtual();
+  relToggleSel(false);          // recolhe a grade ao escolher
+  relGerar();
+}
+
+async function relGerar() {
+  const params = new URLSearchParams({ tipo: relTipoAtual, de: qsV('#r-de'), ate: qsV('#r-ate') });
+  qs('#rel-tbody').innerHTML = '<tr><td colspan="12"><div class="spinner"></div></td></tr>';
+  try {
+    const r = await api.get('/relatorios/gerar?' + params);
+    relatorioData = r;
+    relRender(r);
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function relRender(r) {
+  // Cabeçalho
+  qs('#rel-head').style.display = '';
+  qs('#rel-titulo').textContent = r.titulo;
+  qs('#rel-desc').textContent = r.descricao + (r.usaPeriodo ? ` · Período: ${relatorioPeriodoTxt()}` : ' · Posição atual');
+
+  // KPIs
+  qs('#rel-kpis').innerHTML = (r.kpis || []).map(k => `
+    <div class="stat-card">
+      <div class="stat-label">${k.label}</div>
+      <div class="stat-value ${k.cor ? 'c-' + k.cor : ''}" style="font-size:18px">${relFmt(k.tipo, k.valor)}</div>
+    </div>`).join('');
+
+  // Gráfico (só exibe se houver dados positivos)
+  if (relChart) { relChart.destroy(); relChart = null; }
+  const gcard = qs('#rel-grafico-card');
+  if (r.grafico && (r.grafico.valores || []).some(v => Number(v) > 0)) {
+    gcard.style.display = '';
+    relRenderGrafico(r.grafico);
+  } else {
+    gcard.style.display = 'none';
+  }
+
+  // Tabela
+  const cols = r.colunas || [];
+  const alignR = t => ['moeda', 'num', 'pct'].includes(t) ? ' style="text-align:right"' : '';
+  qs('#rel-thead').innerHTML = '<tr>' + cols.map(c => `<th${alignR(c.tipo)}>${c.label}</th>`).join('') + '</tr>';
+  qs('#rel-tbody').innerHTML = (r.linhas || []).length
+    ? r.linhas.map(row => '<tr>' + cols.map(c => relCell(c, row[c.key])).join('') + '</tr>').join('')
+    : `<tr><td colspan="${cols.length || 1}" class="text-center" style="padding:24px;color:var(--text3)">Sem dados para exibir.</td></tr>`;
+  qs('#rel-tabela-card').style.display = '';
+  const n = (r.linhas || []).length;
+  qs('#rel-tabela-count').textContent = n ? `(${n} ${n === 1 ? 'registro' : 'registros'})` : '';
+}
+
+function relCell(col, val) {
+  if (col.tipo === 'badge') {
+    const txt = (val == null || val === '') ? '—' : String(val);
+    const low = txt.toLowerCase();
+    let cls = 'badge-gray';
+    if (/falta|atraso|cr[íi]tico|saida|saída/.test(low)) cls = 'badge-red';
+    else if (/vencer|entrada/.test(low)) cls = 'badge-green';
+    return `<td><span class="badge ${cls}">${txt}</span></td>`;
+  }
+  const align = ['moeda', 'num', 'pct'].includes(col.tipo) ? ' style="text-align:right"' : '';
+  const cls = (col.tipo === 'moeda' && Number(val) < 0) ? 'c-red' : '';
+  return `<td class="${cls}"${align}>${relFmt(col.tipo, val)}</td>`;
+}
+
+function relRenderGrafico(g) {
+  const tema = chartTema();
+  const horiz = g.tipo === 'barh';
+  const type = g.tipo === 'doughnut' ? 'doughnut' : (g.tipo === 'line' ? 'line' : 'bar');
+  // Heurística de formatação do tooltip (moeda quando os valores são financeiros)
+  const moedaRel = ['vendas', 'faturamento-mensal', 'vendas-pagamento', 'vendas-categoria', 'vendas-operador',
+    'vendas-horario', 'vendas-dia-semana', 'curva-abc', 'lucratividade', 'margem-categoria',
+    'estoque-categoria', 'aging-receber', 'clientes', 'recebimentos', 'pagamentos',
+    'despesas-categoria', 'fluxo-caixa'];
+  const isMoeda = moedaRel.includes(relTipoAtual);
+  const fmtVal = v => isMoeda ? R(v) : Number(v).toLocaleString('pt-BR');
+
+  qs('#rel-grafico-titulo').innerHTML =
+    `<i class="fa-solid fa-chart-pie" style="color:var(--purple);margin-right:6px"></i>${g.label || 'Gráfico'}`;
+
+  if (type === 'doughnut') {
+    relChart = new Chart(qs('#rel-chart'), {
       type: 'doughnut',
-      data: {
-        labels: pgto.map(p => p.pagamento),
-        datasets: [{ data: pgto.map(p => p.total), backgroundColor: CHART_CORES, borderWidth: 0 }],
-      },
+      data: { labels: g.labels, datasets: [{ data: g.valores, backgroundColor: CHART_CORES, borderWidth: 0 }] },
       options: {
         responsive: true, maintainAspectRatio: false, cutout: '58%',
         plugins: {
           legend: { position: 'bottom', labels: { color: tema.texto, padding: 12, font: { size: 12 } } },
-          tooltip: { callbacks: { label: c => `${c.label}: ${R(c.parsed)}` } },
+          tooltip: { callbacks: { label: c => `${c.label}: ${fmtVal(c.parsed)}` } },
         },
       },
     });
+    return;
+  }
 
-    // Gráfico: Top produtos (barras horizontais)
-    const top = r.top_produtos || [];
-    if (chartTop) chartTop.destroy();
-    chartTop = new Chart(document.getElementById('r-top-chart'), {
-      type: 'bar',
-      data: {
-        labels: top.map(p => p.descricao),
-        datasets: [{ label: 'Qtd. vendida', data: top.map(p => p.qtd_vendida), backgroundColor: '#ea580c', borderRadius: 6 }],
+  const labels = g.labels.map(l => g.tipo === 'line' ? fmtD(l) : l);
+  relChart = new Chart(qs('#rel-chart'), {
+    type,
+    data: {
+      labels,
+      datasets: [{
+        label: g.label, data: g.valores,
+        backgroundColor: type === 'line' ? 'rgba(234,88,12,.15)' : (horiz ? '#0ea5e9' : '#ea580c'),
+        borderColor: '#ea580c', borderWidth: type === 'line' ? 2 : 0,
+        borderRadius: 6, fill: type === 'line', tension: .3, pointRadius: 3,
+      }],
+    },
+    options: {
+      indexAxis: horiz ? 'y' : 'x', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmtVal(horiz ? c.parsed.x : c.parsed.y) } } },
+      scales: {
+        x: { ticks: { color: tema.texto }, grid: { color: tema.grid } },
+        y: { ticks: { color: tema.texto }, grid: { display: !horiz, color: tema.grid } },
       },
-      options: {
-        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.parsed.x} un.` } } },
-        scales: {
-          x: { ticks: { color: tema.texto }, grid: { color: tema.grid } },
-          y: { ticks: { color: tema.texto }, grid: { display: false } },
-        },
-      },
-    });
-
-    // Resumo
-    const res = r.resumo || {};
-    document.getElementById('r-resumo').innerHTML = `
-      <div class="stat-card"><div class="stat-label">Faturamento</div><div class="stat-value" style="font-size:18px">${R(res.faturamento)}</div></div>
-      <div class="stat-card"><div class="stat-label">Qtd. Vendas</div><div class="stat-value">${res.qtd_vendas||0}</div></div>
-      <div class="stat-card"><div class="stat-label">Ticket Médio</div><div class="stat-value" style="font-size:18px">${R(res.ticket_medio)}</div></div>
-      <div class="stat-card"><div class="stat-label">Descontos</div><div class="stat-value c-red" style="font-size:18px">${R(res.total_descontos)}</div></div>`;
-
-    // Extrato
-    document.getElementById('r-extrato').innerHTML = (r.extrato||[]).length
-      ? r.extrato.map(e => `<tr>
-          <td>${fmtD(e.data)}</td>
-          <td class="fw-600">${e.qtd_vendas}</td>
-          <td class="fw-600 c-green">${R(e.total)}</td>
-        </tr>`).join('')
-      : '<tr><td colspan="3" class="text-center" style="padding:20px;color:var(--text3)">Sem dados no período</td></tr>';
-
-  } catch (err) { toast(err.message,'error'); }
+    },
+  });
 }
 
 function relatorioPeriodoTxt() {
-  const p = relatorioData?.periodo || {};
+  const p = relatorioData?.periodo || { de: qsV('#r-de'), ate: qsV('#r-ate') };
   const f = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
   return `${f(p.de)} a ${f(p.ate)}`;
 }
 
-// ── Exportar relatório para Excel (SheetJS) ───────────────────────
+// Valor "cru" para exportação (números como número; datas/textos como string)
+function relExportVal(tipo, v) {
+  if (v === null || v === undefined || v === '') return '';
+  if (tipo === 'moeda' || tipo === 'num' || tipo === 'pct') return Number(v);
+  if (tipo === 'data') return fmtD(v);
+  return String(v);
+}
+const relStamp = () => new Date().toISOString().slice(0, 10);
+
+// ── Exportar relatório atual para Excel (SheetJS) ─────────────────
 function exportRelatorioExcel() {
   if (!relatorioData) { toast('Gere o relatório primeiro.', 'warning'); return; }
-  const r = relatorioData, res = r.resumo || {};
+  const r = relatorioData;
   const wb = XLSX.utils.book_new();
+  const escopo = r.usaPeriodo ? relatorioPeriodoTxt() : 'Posição atual';
 
-  const resumo = [
-    ['Relatório de Vendas'], ['Período', relatorioPeriodoTxt()], [],
-    ['Faturamento', res.faturamento || 0],
-    ['Qtd. Vendas', res.qtd_vendas || 0],
-    ['Ticket Médio', res.ticket_medio || 0],
-    ['Descontos', res.total_descontos || 0],
-  ];
+  const resumo = [[r.titulo], ['Escopo', escopo], []];
+  (r.kpis || []).forEach(k => resumo.push([k.label, relExportVal(k.tipo, k.valor)]));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumo), 'Resumo');
 
-  const pgto = [['Forma de Pagamento', 'Qtd', 'Total'],
-    ...(r.por_pagamento||[]).map(p => [p.pagamento, p.qtd ?? '', p.total])];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(pgto), 'Por Pagamento');
+  const cols = r.colunas || [];
+  const det = [cols.map(c => c.label),
+    ...(r.linhas || []).map(row => cols.map(c => relExportVal(c.tipo, row[c.key])))];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(det), 'Detalhamento');
 
-  const top = [['Produto', 'Qtd Vendida'],
-    ...(r.top_produtos||[]).map(p => [p.descricao, p.qtd_vendida])];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(top), 'Top Produtos');
-
-  const ext = [['Data', 'Qtd Vendas', 'Total'],
-    ...(r.extrato||[]).map(e => [new Date(e.data).toLocaleDateString('pt-BR'), e.qtd_vendas, e.total])];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ext), 'Extrato Diário');
-
-  XLSX.writeFile(wb, `relatorio-vendas_${r.periodo.de}_a_${r.periodo.ate}.xlsx`);
+  XLSX.writeFile(wb, `${r.tipo}_${relStamp()}.xlsx`);
   toast('Excel exportado!', 'success');
 }
 
-// ── Exportar relatório para PDF (jsPDF + autotable) ───────────────
+// ── Exportar relatório atual para PDF (jsPDF + autotable) ─────────
 function exportRelatorioPDF() {
   if (!relatorioData) { toast('Gere o relatório primeiro.', 'warning'); return; }
-  const r = relatorioData, res = r.resumo || {};
+  const r = relatorioData;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const empresa = (Auth.getUser && Auth.getUser()?.empresa_nome) || 'GestorFlex';
+  const escopo = r.usaPeriodo ? relatorioPeriodoTxt() : 'Posição atual';
 
-  doc.setFontSize(16); doc.text('Relatório de Vendas', 14, 18);
+  doc.setFontSize(16); doc.text(r.titulo, 14, 18);
   doc.setFontSize(10); doc.setTextColor(110);
   doc.text(empresa, 14, 25);
-  doc.text('Período: ' + relatorioPeriodoTxt(), 14, 31);
+  doc.text(escopo, 14, 31);
 
-  doc.autoTable({
-    startY: 38,
-    head: [['Faturamento', 'Qtd. Vendas', 'Ticket Médio', 'Descontos']],
-    body: [[R(res.faturamento), res.qtd_vendas || 0, R(res.ticket_medio), R(res.total_descontos)]],
-    theme: 'grid', headStyles: { fillColor: [37, 99, 235] },
-  });
+  if ((r.kpis || []).length) {
+    doc.autoTable({
+      startY: 38,
+      head: [r.kpis.map(k => k.label)],
+      body: [r.kpis.map(k => relFmt(k.tipo, k.valor))],
+      theme: 'grid', headStyles: { fillColor: [234, 88, 12] }, styles: { fontSize: 9 },
+    });
+  }
 
+  const cols = r.colunas || [];
   doc.autoTable({
-    startY: doc.lastAutoTable.finalY + 8,
-    head: [['Forma de Pagamento', 'Qtd', 'Total']],
-    body: (r.por_pagamento||[]).map(p => [p.pagamento, p.qtd ?? '-', R(p.total)]),
-    theme: 'striped', headStyles: { fillColor: [124, 58, 237] },
-  });
-
-  doc.autoTable({
-    startY: doc.lastAutoTable.finalY + 8,
-    head: [['Top Produtos', 'Qtd Vendida']],
-    body: (r.top_produtos||[]).map(p => [p.descricao, p.qtd_vendida]),
-    theme: 'striped', headStyles: { fillColor: [217, 119, 6] },
-  });
-
-  doc.autoTable({
-    startY: doc.lastAutoTable.finalY + 8,
-    head: [['Data', 'Qtd Vendas', 'Total']],
-    body: (r.extrato||[]).map(e => [new Date(e.data).toLocaleDateString('pt-BR'), e.qtd_vendas, R(e.total)]),
-    theme: 'striped', headStyles: { fillColor: [22, 163, 74] },
+    startY: (doc.lastAutoTable?.finalY || 34) + 8,
+    head: [cols.map(c => c.label)],
+    body: (r.linhas || []).map(row => cols.map(c => relFmt(c.tipo, row[c.key]))),
+    theme: 'striped', headStyles: { fillColor: [37, 99, 235] }, styles: { fontSize: 8 },
   });
 
   doc.setFontSize(8); doc.setTextColor(150);
   doc.text('Emitido em ' + new Date().toLocaleString('pt-BR'), 14, doc.internal.pageSize.height - 8);
-  doc.save(`relatorio-vendas_${r.periodo.de}_a_${r.periodo.ate}.pdf`);
+  doc.save(`${r.tipo}_${relStamp()}.pdf`);
   toast('PDF exportado!', 'success');
 }
 
