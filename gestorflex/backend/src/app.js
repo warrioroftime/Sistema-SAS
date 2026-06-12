@@ -35,6 +35,7 @@ app.use('/api/caixa',          require('./routes/caixa'));
 app.use('/api/fornecedores',   require('./routes/fornecedores'));
 app.use('/api/compras',        require('./routes/compras'));
 app.use('/api/notificacoes',   require('./routes/notificacoes'));
+app.use('/api/comissoes',      require('./routes/comissoes'));
 app.use('/api/saas',           require('./routes/saas'));
 
 // ── Handler de erros ────────────────────────────────────────────

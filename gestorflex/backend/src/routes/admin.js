@@ -188,7 +188,7 @@ router.get('/usuarios', async (req, res) => {
     const empresaFilter = empId ? 'AND u.empresa_id=@emp' : '';
     const params = empId ? { emp: empId } : {};
     const r = await query(`
-      SELECT u.id, u.nome, u.email, u.perfil, u.foto, u.ativo, u.criado_em, u.permissoes,
+      SELECT u.id, u.nome, u.email, u.perfil, u.foto, u.ativo, u.criado_em, u.permissoes, u.comissao_percentual,
              e.razao_social AS empresa_nome, e.id AS empresa_id
       FROM Usuarios u
       JOIN Empresas e ON e.id = u.empresa_id
@@ -218,12 +218,13 @@ router.post('/usuarios', async (req, res) => {
     const permsRaw = req.body.permissoes;
     const permissoes = Array.isArray(permsRaw) ? JSON.stringify(permsRaw) : (permsRaw || null);
 
+    const comissao = Math.min(Math.max(parseFloat(req.body.comissao_percentual) || 0, 0), 100);
     const hash = await bcrypt.hash(senha, 10);
     const r = await query(`
-      INSERT INTO Usuarios (empresa_id, nome, email, senha_hash, perfil, foto, permissoes)
+      INSERT INTO Usuarios (empresa_id, nome, email, senha_hash, perfil, foto, permissoes, comissao_percentual)
       OUTPUT INSERTED.id
-      VALUES (@empresa_id, @nome, @email, @hash, @perfil, @foto, @permissoes)
-    `, { empresa_id: empId, nome, email, hash, perfil: perfil||'operador', foto: foto||null, permissoes });
+      VALUES (@empresa_id, @nome, @email, @hash, @perfil, @foto, @permissoes, @comissao)
+    `, { empresa_id: empId, nome, email, hash, perfil: perfil||'operador', foto: foto||null, permissoes, comissao });
 
     res.status(201).json({ id: r.recordset[0].id });
   } catch (err) {
@@ -251,15 +252,16 @@ router.put('/usuarios/:id', async (req, res) => {
     const permsRaw = req.body.permissoes;
     const permissoes = Array.isArray(permsRaw) ? JSON.stringify(permsRaw) : (permsRaw !== undefined ? (permsRaw || null) : undefined);
 
+    const comissao = Math.min(Math.max(parseFloat(req.body.comissao_percentual) || 0, 0), 100);
     await query(`
       UPDATE Usuarios
-      SET nome=@nome, email=@email, perfil=@perfil,
+      SET nome=@nome, email=@email, perfil=@perfil, comissao_percentual=@comissao,
           foto=CASE WHEN @foto IS NOT NULL THEN @foto ELSE foto END,
           permissoes=CASE WHEN @permsSet=1 THEN @permissoes ELSE permissoes END
       WHERE id=@id
     `, { nome, email, perfil: perfil||'operador', foto: foto !== undefined ? (foto||null) : null,
          permsSet: permissoes !== undefined ? 1 : 0, permissoes: permissoes !== undefined ? permissoes : null,
-         id: parseInt(req.params.id) });
+         comissao, id: parseInt(req.params.id) });
 
     res.json({ ok: true });
   } catch (err) {

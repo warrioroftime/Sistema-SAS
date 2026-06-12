@@ -812,6 +812,9 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
       <a class="nav-item" data-perm="despesas" href="javascript:void(0)" onclick="navigate('despesas')">
         <i class="fa-solid fa-receipt"></i> Lançamento de Despesas
       </a>
+      <a class="nav-item" data-perm="comissoes" href="javascript:void(0)" onclick="navigate('comissoes')">
+        <i class="fa-solid fa-hand-holding-dollar"></i> Comissões
+      </a>
       <a class="nav-item" data-perm="relatorios" href="javascript:void(0)" onclick="navigate('relatorios')">
         <i class="fa-solid fa-chart-bar"></i> Relatórios
       </a>
@@ -2055,6 +2058,30 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
       </div>
     </div>
 
+    <!-- COMISSÕES -->
+    <div id="page-comissoes" class="page">
+      <div class="page-header">
+        <div><div class="page-title"><i class="fa-solid fa-hand-holding-dollar"></i>Comissões</div><div class="page-sub"><i class="bi bi-percent"></i> Comissão de vendedores por período</div></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="date" class="form-input" id="cm-de" style="width:140px">
+          <input type="date" class="form-input" id="cm-ate" style="width:140px">
+          <button class="btn btn-primary" onclick="loadComissoes()"><i class="fa-solid fa-play"></i> Calcular</button>
+        </div>
+      </div>
+      <div class="grid-4 mb-16">
+        <div class="stat-card"><div class="stat-label">Base de Cálculo</div><div class="stat-value" id="cm-total-base" style="font-size:18px">R$ 0,00</div></div>
+        <div class="stat-card"><div class="stat-label">Total de Comissões</div><div class="stat-value c-green" id="cm-total-com" style="font-size:18px">R$ 0,00</div></div>
+        <div class="stat-card"><div class="stat-label">Vendedores</div><div class="stat-value" id="cm-qtd">0</div></div>
+      </div>
+      <div class="card">
+        <div class="fs-12 c-text3" style="margin-bottom:10px"><i class="fa-solid fa-circle-info"></i> A % de comissão é definida no cadastro de cada usuário (Administração → Usuários). A base desconta devoluções e exclui vendas canceladas.</div>
+        <div class="table-wrap"><table class="data">
+          <thead><tr><th>Vendedor</th><th>Vendas</th><th>Vendido</th><th>Devoluções</th><th>Base</th><th>%</th><th>Comissão</th><th>Ações</th></tr></thead>
+          <tbody id="cm-tbody"><tr><td colspan="8" class="text-center" style="padding:30px;color:var(--text3)">Selecione o período e clique em Calcular</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
     <!-- FORNECEDORES -->
     <div id="page-fornecedores" class="page">
       <div class="page-header">
@@ -3054,7 +3081,10 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
           </select>
         </div>
       </div>
-      <div class="form-group" id="madmu-senha-group"><label class="form-label">Senha *</label><input class="form-input" id="madmu-senha" type="password" placeholder="Mínimo 6 caracteres"></div>
+      <div class="form-row cols-2">
+        <div class="form-group" id="madmu-senha-group"><label class="form-label">Senha *</label><input class="form-input" id="madmu-senha" type="password" placeholder="Mínimo 6 caracteres"></div>
+        <div class="form-group"><label class="form-label">Comissão (%)</label><input class="form-input" id="madmu-comissao" type="number" min="0" max="100" step="0.5" value="0" placeholder="0"></div>
+      </div>
 
       <!-- Permissões -->
       <div id="madmu-perms-section">
@@ -3288,7 +3318,7 @@ function applyUser(user) {
 // ── PERMISSÕES ────────────────────────────────────────────────────
 const PERMS_DEFAULTS = {
   admin:    null,
-  gerente:  ['dashboard','pdv','caixa','vendas','historico','produtos','grupos','clientes','fornecedores','estoque','compras','movimentacoes','contas-receber','contas-pagar','despesas','relatorios','recibo'],
+  gerente:  ['dashboard','pdv','caixa','vendas','historico','produtos','grupos','clientes','fornecedores','estoque','compras','movimentacoes','contas-receber','contas-pagar','despesas','comissoes','relatorios','recibo'],
   operador: ['dashboard','pdv','caixa','vendas','historico','clientes'],
 };
 
@@ -3341,14 +3371,14 @@ function doLogout() {
 const pageNames = {
   dashboard:'Dashboard', pdv:'PDV — Ponto de Venda', caixa:'Caixa', vendas:'Nova Venda', historico:'Histórico de Vendas',
   produtos:'Produtos', grupos:'Grupos', clientes:'Clientes', fornecedores:'Fornecedores', estoque:'Posição do Estoque',
-  compras:'Compras / Entrada', movimentacoes:'Movimentações', 'contas-receber':'Contas a Receber', 'contas-pagar':'Contas a Pagar', despesas:'Lançamento de Despesas', relatorios:'Relatórios',
+  compras:'Compras / Entrada', movimentacoes:'Movimentações', 'contas-receber':'Contas a Receber', 'contas-pagar':'Contas a Pagar', despesas:'Lançamento de Despesas', comissoes:'Comissões', relatorios:'Relatórios',
   recibo:'Personalizar Recibo',
   empresas:'Empresas', 'minha-empresa':'Minha Empresa', 'adm-usuarios':'Usuários',
 };
 const pageLoaders = {
   dashboard: loadDashboard, pdv: loadPDV, caixa: loadCaixa, historico: loadHistorico, produtos: loadProdutos,
   grupos: loadGrupos, clientes: loadClientes, fornecedores: loadFornecedores, estoque: loadEstoque, compras: loadCompras, movimentacoes: loadMovimentacoes,
-  'contas-receber': loadContasReceber, 'contas-pagar': loadContasPagar, despesas: loadDespesas, relatorios: loadRelatorios, recibo: loadReciboConfig,
+  'contas-receber': loadContasReceber, 'contas-pagar': loadContasPagar, despesas: loadDespesas, comissoes: loadComissoes, relatorios: loadRelatorios, recibo: loadReciboConfig,
   empresas: () => { loadEmpresas(); },
   'minha-empresa': loadMinhaEmpresa,
   'adm-usuarios': () => { loadEmpresasSelect(); loadAdmUsuarios(); },
@@ -5293,6 +5323,48 @@ async function verCompra(id) {
   } catch (err) { toast(err.message, 'error'); }
 }
 
+// ── COMISSÕES ─────────────────────────────────────────────────────
+let _comissoesData = null;
+async function loadComissoes() {
+  const now = new Date(); const de30 = new Date(now); de30.setDate(de30.getDate() - 30);
+  if (!qsV('#cm-de'))  qs('#cm-de').value  = de30.toISOString().split('T')[0];
+  if (!qsV('#cm-ate')) qs('#cm-ate').value = now.toISOString().split('T')[0];
+  const params = new URLSearchParams({ de: qsV('#cm-de'), ate: qsV('#cm-ate') });
+  qs('#cm-tbody').innerHTML = '<tr class="loading-row"><td colspan="8"><div class="spinner"></div></td></tr>';
+  try {
+    const r = await api.get('/comissoes?' + params);
+    _comissoesData = r;
+    qs('#cm-total-base').textContent = R(r.total_base);
+    qs('#cm-total-com').textContent = R(r.total_comissao);
+    qs('#cm-qtd').textContent = r.linhas.length;
+    qs('#cm-tbody').innerHTML = r.linhas.length ? r.linhas.map(l => `<tr>
+      <td class="fw-600">${l.vendedor}</td>
+      <td class="text-center">${l.qtd_vendas}</td>
+      <td>${R(l.total_vendido)}</td>
+      <td class="${l.devolvido > 0 ? 'c-red' : 'c-text3'}">${l.devolvido > 0 ? '-' + R(l.devolvido) : '—'}</td>
+      <td class="fw-600">${R(l.base)}</td>
+      <td class="text-center">${(+l.percentual).toFixed(1).replace('.', ',')}%</td>
+      <td class="fw-700 c-green">${R(l.comissao)}</td>
+      <td>${l.comissao > 0
+          ? `<button class="btn btn-sm" style="background:var(--amber-light);color:var(--amber);border:none" onclick="lancarComissao(${l.usuario_id})"><i class="fa-solid fa-file-invoice-dollar"></i> Lançar</button>`
+          : '<span class="c-text3 fs-12">—</span>'}</td>
+    </tr>`).join('')
+      : '<tr><td colspan="8" class="text-center" style="padding:30px;color:var(--text3)">Sem vendas no período</td></tr>';
+  } catch (err) { toast(err.message, 'error'); }
+}
+async function lancarComissao(uid) {
+  const l = _comissoesData?.linhas.find(x => x.usuario_id === uid);
+  if (!l) return;
+  if (l.percentual <= 0 || l.comissao <= 0) { toast('Vendedor sem comissão a lançar.', 'warning'); return; }
+  const venc = prompt(`Lançar comissão de ${R(l.comissao)} para ${l.vendedor} em Contas a Pagar.\n\nData de vencimento (AAAA-MM-DD) — opcional:`, '');
+  if (venc === null) return;
+  try {
+    const periodo = `${new Date(qsV('#cm-de') + 'T00:00:00').toLocaleDateString('pt-BR')} a ${new Date(qsV('#cm-ate') + 'T00:00:00').toLocaleDateString('pt-BR')}`;
+    await api.post('/comissoes/lancar', { usuario_id: uid, vendedor: l.vendedor, valor: l.comissao, periodo, data_vencimento: venc.trim() || null });
+    toast(`Comissão de ${l.vendedor} lançada em Contas a Pagar!`, 'success');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
 // ── ESTOQUE ───────────────────────────────────────────────────────
 async function loadEstoque() {
   const params = new URLSearchParams({
@@ -6939,6 +7011,7 @@ async function abrirModalUsuario() {
   document.getElementById('madmu-senha-group').style.display = 'block';
   ['madmu-nome','madmu-email','madmu-senha'].forEach(f => qs('#'+f).value = '');
   qs('#madmu-perfil').value = 'operador';
+  qs('#madmu-comissao').value = '0';
   madmuFotoBase64 = null;
   document.getElementById('madmu-foto-input').value = '';
   madmuSetFotoPreview(null);
@@ -6961,6 +7034,7 @@ async function editarUsuarioAdm(id) {
     qs('#madmu-nome').value   = u.nome;
     qs('#madmu-email').value  = u.email;
     qs('#madmu-perfil').value = u.perfil;
+    qs('#madmu-comissao').value = u.comissao_percentual ?? 0;
     madmuFotoBase64 = null;
     document.getElementById('madmu-foto-input').value = '';
     if (u.foto) {
@@ -6990,6 +7064,7 @@ async function salvarUsuarioAdm() {
         nome:   qsV('#madmu-nome').trim(),
         email:  qsV('#madmu-email').trim(),
         perfil: qsV('#madmu-perfil'),
+        comissao_percentual: parseFloat(qsV('#madmu-comissao')) || 0,
         permissoes,
         ...(fotoPayload !== undefined && { foto: fotoPayload }),
       });
@@ -7000,6 +7075,7 @@ async function salvarUsuarioAdm() {
         email:      qsV('#madmu-email').trim(),
         senha:      qsV('#madmu-senha'),
         perfil:     qsV('#madmu-perfil'),
+        comissao_percentual: parseFloat(qsV('#madmu-comissao')) || 0,
         permissoes,
         foto:       madmuFotoBase64 || null,
       });
