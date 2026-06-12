@@ -3373,7 +3373,7 @@ async function doLogin() {
     if (data.empresas && data.empresas.length > 1) {
       Auth.setUser({ ...data.user, _empresas: data.empresas });
       abrirSelecionarEmpresa();
-    } else if (data.user.perfil === 'saas') {
+    } else if (data.user.perfil === 'saas' || Number(data.user.empresa_id) === 1) {
       Auth.setUser(data.user);
       saasEntrar(data.user);
     } else {
@@ -3507,7 +3507,7 @@ async function selecionarEmpresa(empresa_id) {
     closeModal('modal-selecionar-empresa');
     const u = Auth.getUser();
     qs('#btn-trocar-empresa').style.display = (u._empresas?.length > 1) ? '' : 'none';
-    if (res.user.perfil === 'saas') {
+    if (res.user.perfil === 'saas' || Number(res.user.empresa_id) === 1) {
       saasEntrar(res.user);
     } else {
       applyUser(res.user);
@@ -7486,7 +7486,7 @@ const saasPageNames = {
   const token = Auth.getToken();
   if (user && token) {
     hideLogin();
-    if (user.perfil === 'saas') {
+    if (user.perfil === 'saas' || Number(user.empresa_id) === 1) {
       saasEntrar(user);
     } else {
       applyUser(user);
