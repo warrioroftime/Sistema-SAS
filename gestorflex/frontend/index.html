@@ -183,6 +183,11 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);background-at
 #topbar{background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-bottom:1px solid var(--glass-border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:50;box-shadow:0 2px 12px rgba(0,0,0,.06)}
 .topbar-title{font-size:15px;font-weight:600}
 .topbar-right{display:flex;align-items:center;gap:8px}
+.notif-badge{position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.notif-panel{position:absolute;top:44px;right:0;width:330px;max-height:440px;overflow:auto;background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid var(--glass-border);border-radius:14px;box-shadow:var(--shadow);z-index:120;padding:8px}
+.notif-item{display:flex;gap:10px;align-items:center;padding:10px;border-radius:10px;cursor:pointer;transition:background .15s}
+.notif-item:hover{background:var(--surface2)}
+.notif-ic{flex-shrink:0;width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px}
 #content{padding:24px;flex:1;overflow-y:auto;overflow-x:hidden;overflow-anchor:none}
 
 /* ── BUTTONS ── */
@@ -373,7 +378,13 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
    PDV — Ponto de Venda
 ══════════════════════════════════════════════ */
 .pdv-layout{display:grid;grid-template-columns:1fr 370px;gap:16px;height:calc(100vh - 56px - 48px)}
-.pdv-left{display:flex;flex-direction:column;gap:10px;overflow:hidden;min-height:0}
+.pdv-left{display:flex;flex-direction:column;gap:10px;overflow:hidden;min-height:0;position:relative}
+/* marca d'água da logo da empresa no fundo do PDV */
+.pdv-left::after{content:'';position:absolute;inset:0;background-image:var(--pdv-logo,none);background-repeat:no-repeat;background-position:center;background-size:min(55%,440px);opacity:.20;pointer-events:none;z-index:0}
+.pdv-left > *{position:relative;z-index:1}
+/* caixa de preview da logo (Minha Empresa) */
+.me-logo-box{width:96px;height:96px;border:1.5px dashed var(--border);border-radius:14px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--surface2);flex-shrink:0}
+.me-logo-box img{max-width:100%;max-height:100%;object-fit:contain}
 .pdv-right{background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border:1px solid var(--glass-border);border-radius:20px;padding:0;display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow-lg),0 0 0 1px rgba(255,255,255,.08) inset}
 
 /* PDV Right Header */
@@ -774,11 +785,17 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
       <a class="nav-item" data-perm="clientes" href="javascript:void(0)" onclick="navigate('clientes')">
         <i class="fa-solid fa-users"></i> Clientes
       </a>
+      <a class="nav-item" data-perm="fornecedores" href="javascript:void(0)" onclick="navigate('fornecedores')">
+        <i class="fa-solid fa-truck-field"></i> Fornecedores
+      </a>
     </div>
     <div class="nav-section">
       <div class="nav-label">Estoque</div>
       <a class="nav-item" data-perm="estoque" href="javascript:void(0)" onclick="navigate('estoque')">
         <i class="fa-solid fa-warehouse"></i> Posição do Estoque
+      </a>
+      <a class="nav-item" data-perm="compras" href="javascript:void(0)" onclick="navigate('compras')">
+        <i class="fa-solid fa-truck-ramp-box"></i> Compras / Entrada
       </a>
       <a class="nav-item" data-perm="movimentacoes" href="javascript:void(0)" onclick="navigate('movimentacoes')">
         <i class="fa-solid fa-right-left"></i> Movimentações
@@ -809,6 +826,9 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
       <div class="nav-label">Administração</div>
       <a class="nav-item" id="nav-empresas-item" href="javascript:void(0)" onclick="navigate('empresas')">
         <i class="fa-solid fa-building"></i> Empresas
+      </a>
+      <a class="nav-item" id="nav-minha-empresa-item" style="display:none" href="javascript:void(0)" onclick="navigate('minha-empresa')">
+        <i class="fa-solid fa-building"></i> Minha Empresa
       </a>
       <a class="nav-item" href="javascript:void(0)" onclick="navigate('adm-usuarios')">
         <i class="fa-solid fa-users-gear"></i> Usuários
@@ -841,6 +861,13 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
     </div>
     <div class="topbar-right">
       <span style="font-size:12px;color:var(--text3)" id="topbar-date"></span>
+      <div style="position:relative">
+        <button class="dark-toggle" id="notif-btn" onclick="toggleNotifs(event)" title="Notificações" style="position:relative">
+          <i class="fa-solid fa-bell" style="font-size:15px"></i>
+          <span id="notif-badge" class="notif-badge" style="display:none">0</span>
+        </button>
+        <div id="notif-panel" class="notif-panel" style="display:none"></div>
+      </div>
       <button class="dark-toggle" id="dark-toggle-btn" onclick="toggleDarkMode()" title="Alternar modo escuro">
         <svg id="icon-moon" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         <svg id="icon-sun" width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none"><circle cx="12" cy="12" r="5" stroke-width="2"/><line x1="12" y1="1" x2="12" y2="3" stroke-width="2"/><line x1="12" y1="21" x2="12" y2="23" stroke-width="2"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke-width="2"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke-width="2"/><line x1="1" y1="12" x2="3" y2="12" stroke-width="2"/><line x1="21" y1="12" x2="23" y2="12" stroke-width="2"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke-width="2"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke-width="2"/></svg>
@@ -2028,6 +2055,104 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
       </div>
     </div>
 
+    <!-- FORNECEDORES -->
+    <div id="page-fornecedores" class="page">
+      <div class="page-header">
+        <div><div class="page-title"><i class="fa-solid fa-truck-field"></i>Fornecedores</div><div class="page-sub"><i class="bi bi-truck"></i> Cadastro de fornecedores</div></div>
+        <button class="btn btn-primary" onclick="abrirModalFornecedor()"><i class="fa-solid fa-plus"></i> Novo Fornecedor</button>
+      </div>
+      <div class="card">
+        <div style="margin-bottom:12px"><input class="form-input" id="forn-busca" placeholder="Buscar por nome ou documento..." oninput="debounce(loadFornecedores,400)()" style="max-width:340px"></div>
+        <div class="table-wrap"><table class="data">
+          <thead><tr><th>Nome</th><th>CNPJ/CPF</th><th>Telefone</th><th>Cidade/UF</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody id="forn-tbody"><tr class="loading-row"><td colspan="6"><div class="spinner"></div></td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- COMPRAS / ENTRADA -->
+    <div id="page-compras" class="page">
+      <div class="page-header">
+        <div><div class="page-title"><i class="fa-solid fa-truck-ramp-box"></i>Compras / Entrada</div><div class="page-sub"><i class="bi bi-box-seam"></i> Entrada de mercadoria no estoque</div></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="date" class="form-input" id="co-de" style="width:140px">
+          <input type="date" class="form-input" id="co-ate" style="width:140px">
+          <button class="btn btn-secondary" onclick="loadCompras()"><i class="fa-solid fa-magnifying-glass"></i></button>
+          <button class="btn btn-primary" onclick="abrirModalCompra()"><i class="fa-solid fa-plus"></i> Nova Entrada</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap"><table class="data">
+          <thead><tr><th>#</th><th>Data</th><th>Documento</th><th>Fornecedor</th><th>Itens</th><th>Total</th><th>Conta</th><th>Ações</th></tr></thead>
+          <tbody id="compras-tbody"><tr class="loading-row"><td colspan="8"><div class="spinner"></div></td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- MINHA EMPRESA (admin-cliente) -->
+    <div id="page-minha-empresa" class="page">
+      <div class="page-header">
+        <div><div class="page-title"><i class="fa-solid fa-building"></i>Minha Empresa</div><div class="page-sub"><i class="bi bi-building-gear"></i> Dados e assinatura da sua empresa</div></div>
+      </div>
+      <div class="grid-2" style="align-items:start">
+        <!-- Dados de contato (editáveis) -->
+        <div class="card">
+          <div class="section-title"><i class="fa-solid fa-id-card" style="color:var(--primary);margin-right:6px"></i>Dados da Empresa</div>
+
+          <div class="form-group">
+            <label class="form-label">Logo da Empresa</label>
+            <div style="display:flex;align-items:center;gap:14px">
+              <div class="me-logo-box">
+                <img id="me-logo-img" style="display:none">
+                <span id="me-logo-ph" class="c-text3" style="font-size:11px;text-align:center"><i class="fa-solid fa-image" style="font-size:20px;display:block;margin-bottom:4px"></i>Sem logo</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
+                  <i class="fa-solid fa-upload"></i> Enviar logo
+                  <input type="file" id="me-logo-input" accept="image/*" onchange="meLogoChange(this)" style="display:none">
+                </label>
+                <button class="btn btn-sm" id="me-logo-rm" style="display:none;background:var(--red-light);color:var(--red);border:none" onclick="meLogoRemover()"><i class="fa-solid fa-trash-can"></i> Remover</button>
+                <div class="fs-12 c-text3">PNG ou JPG. Aparece no fundo do PDV.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group"><label class="form-label">Razão Social</label>
+            <input class="form-input" id="me-razao" maxlength="150"></div>
+          <div class="form-row cols-2">
+            <div class="form-group"><label class="form-label">CNPJ</label>
+              <input class="form-input" id="me-cnpj" maxlength="20"></div>
+            <div class="form-group"><label class="form-label">Telefone</label>
+              <input class="form-input" id="me-tel" maxlength="20"></div>
+          </div>
+          <div class="form-group"><label class="form-label">E-mail</label>
+            <input class="form-input" id="me-email" type="email" maxlength="150"></div>
+          <div style="display:flex;justify-content:flex-end;margin-top:6px">
+            <button class="btn btn-primary" id="me-btn" onclick="salvarMinhaEmpresa()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+          </div>
+        </div>
+
+        <!-- Plano e uso (somente leitura) -->
+        <div class="card">
+          <div class="section-title"><i class="fa-solid fa-gem" style="color:var(--amber);margin-right:6px"></i>Plano e Assinatura</div>
+          <div class="grid-2" style="gap:12px">
+            <div class="stat-card"><div class="stat-label">Plano</div><div class="stat-value" id="me-plano" style="font-size:18px">—</div></div>
+            <div class="stat-card"><div class="stat-label">Status</div><div class="stat-value" id="me-status" style="font-size:18px">—</div></div>
+            <div class="stat-card"><div class="stat-label">Contratação</div><div class="stat-value" id="me-contratacao" style="font-size:15px">—</div></div>
+            <div class="stat-card"><div class="stat-label">Vencimento</div><div class="stat-value" id="me-vencimento" style="font-size:15px">—</div></div>
+          </div>
+
+          <div class="nav-label" style="padding-left:0;margin:16px 0 8px">Uso x Limites do Plano</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div><div class="fs-13 c-text2" style="margin-bottom:2px"><i class="fa-solid fa-users" style="margin-right:6px"></i>Usuários</div><div id="me-uso-usuarios"></div></div>
+            <div><div class="fs-13 c-text2" style="margin-bottom:2px"><i class="fa-solid fa-box" style="margin-right:6px"></i>Produtos</div><div id="me-uso-produtos"></div></div>
+            <div><div class="fs-13 c-text2" style="margin-bottom:2px"><i class="fa-solid fa-user-group" style="margin-right:6px"></i>Clientes</div><div id="me-uso-clientes"></div></div>
+          </div>
+          <div class="fs-12 c-text3 mt-8"><i class="fa-solid fa-circle-info"></i> Plano, limites e status são gerenciados pelo provedor do sistema.</div>
+        </div>
+      </div>
+    </div>
+
     <!-- USUÁRIOS (ADMIN) -->
     <div id="page-adm-usuarios" class="page">
       <div class="page-header">
@@ -2430,6 +2555,28 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
           <button class="pdv-pgto-btn" data-pgto="debito" onclick="pdvSetPgto('debito')"><i class="fa-regular fa-credit-card"></i> Débito</button>
           <button class="pdv-pgto-btn" data-pgto="transferencia" onclick="pdvSetPgto('transferencia')"><i class="fa-solid fa-building-columns"></i> Transf.</button>
           <button class="pdv-pgto-btn" data-pgto="fiado" onclick="pdvSetPgto('fiado')"><i class="fa-solid fa-handshake"></i> Fiado</button>
+          <button class="pdv-pgto-btn" data-pgto="split" onclick="pdvSetPgto('split')"><i class="fa-solid fa-money-bill-transfer"></i> Dividir</button>
+        </div>
+      </div>
+
+      <!-- Pagamento dividido -->
+      <div id="pdv-split-box" style="display:none;background:var(--surface2);border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;flex-direction:column;gap:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:6px"><i class="fa-solid fa-money-bill-transfer" style="color:var(--blue)"></i> Dividir em várias formas</div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <div style="flex:1;min-width:120px"><label style="font-size:11px;color:var(--text3);font-weight:600;display:block;margin-bottom:4px">Forma</label>
+            <select class="form-select" id="pdv-split-forma">
+              <option value="dinheiro">Dinheiro</option><option value="pix">PIX</option>
+              <option value="credito">Crédito</option><option value="debito">Débito</option>
+              <option value="transferencia">Transferência</option>
+            </select></div>
+          <div style="width:110px"><label style="font-size:11px;color:var(--text3);font-weight:600;display:block;margin-bottom:4px">Valor (R$)</label>
+            <input class="form-input" id="pdv-split-valor" type="number" min="0" step="0.01" style="text-align:right"></div>
+          <button class="btn btn-secondary" onclick="pdvSplitAdd()"><i class="fa-solid fa-plus"></i></button>
+        </div>
+        <div id="pdv-split-list"></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;border-top:1px solid var(--border);padding-top:8px">
+          <span>Restante: <span id="pdv-split-restante" class="c-red">R$ 0,00</span></span>
+          <span>Adicionado: <span id="pdv-split-soma" class="c-green">R$ 0,00</span></span>
         </div>
       </div>
       <!-- Troco (Dinheiro) -->
@@ -2741,6 +2888,92 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
   </div>
 </div>
 
+<!-- Modal Fornecedor -->
+<div class="modal-backdrop" id="modal-fornecedor">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header"><span class="modal-title" id="mforn-titulo">Novo Fornecedor</span><button class="btn-icon" onclick="closeModal('modal-fornecedor')">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="mforn-id">
+      <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="mforn-nome" maxlength="150"></div>
+      <div class="form-row cols-2">
+        <div class="form-group"><label class="form-label">CNPJ / CPF</label><input class="form-input" id="mforn-doc" maxlength="20"></div>
+        <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" id="mforn-tel" maxlength="20"></div>
+      </div>
+      <div class="form-group"><label class="form-label">E-mail</label><input class="form-input" id="mforn-email" type="email" maxlength="150"></div>
+      <div class="form-group"><label class="form-label">Endereço</label><input class="form-input" id="mforn-end" maxlength="250"></div>
+      <div class="form-row cols-2">
+        <div class="form-group"><label class="form-label">Cidade</label><input class="form-input" id="mforn-cid" maxlength="100"></div>
+        <div class="form-group"><label class="form-label">UF</label><input class="form-input" id="mforn-uf" maxlength="2" style="text-transform:uppercase"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Observação</label><input class="form-input" id="mforn-obs" maxlength="300"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-fornecedor')">Cancelar</button>
+      <button class="btn btn-primary" id="mforn-btn" onclick="salvarFornecedor()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nova Compra / Entrada -->
+<div class="modal-backdrop" id="modal-compra">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header"><span class="modal-title"><i class="fa-solid fa-truck-ramp-box" style="margin-right:8px;color:var(--blue)"></i>Nova Entrada de Mercadoria</span><button class="btn-icon" onclick="closeModal('modal-compra')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-row cols-2">
+        <div class="form-group"><label class="form-label">Fornecedor</label>
+          <select class="form-select" id="mco-fornecedor"><option value="">— Sem fornecedor —</option></select></div>
+        <div class="form-group"><label class="form-label">Nº do documento / NF</label><input class="form-input" id="mco-doc" maxlength="40"></div>
+      </div>
+
+      <div class="nav-label" style="padding-left:0;margin:6px 0 6px">Itens</div>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px">
+        <div class="form-group" style="flex:1;min-width:180px;margin:0"><label class="form-label">Produto</label>
+          <select class="form-select" id="mco-prod"></select></div>
+        <div class="form-group" style="width:80px;margin:0"><label class="form-label">Qtd</label>
+          <input class="form-input" id="mco-qtd" type="number" min="1" value="1" style="text-align:center"></div>
+        <div class="form-group" style="width:110px;margin:0"><label class="form-label">Custo un.</label>
+          <input class="form-input" id="mco-custo" type="number" min="0" step="0.01" value="0"></div>
+        <button class="btn btn-secondary" onclick="compraAddItem()"><i class="fa-solid fa-plus"></i></button>
+      </div>
+      <div class="table-wrap" style="max-height:200px;overflow:auto"><table class="data">
+        <thead><tr><th>Produto</th><th>Qtd</th><th>Custo</th><th>Subtotal</th><th></th></tr></thead>
+        <tbody id="mco-itens"><tr><td colspan="5" class="text-center c-text3" style="padding:14px">Nenhum item adicionado</td></tr></tbody>
+      </table></div>
+
+      <div class="form-row cols-2" style="margin-top:12px">
+        <label class="rc-chk" style="align-items:center"><input type="checkbox" id="mco-att-custo" checked> Atualizar preço de custo dos produtos</label>
+        <label class="rc-chk" style="align-items:center"><input type="checkbox" id="mco-gera-cp" onchange="qs('#mco-venc-wrap').style.display=this.checked?'block':'none'"> Gerar conta a pagar</label>
+      </div>
+      <div class="form-group" id="mco-venc-wrap" style="display:none"><label class="form-label">Vencimento da conta a pagar</label>
+        <input class="form-input" id="mco-venc" type="date"></div>
+      <div class="form-group"><label class="form-label">Observação</label><input class="form-input" id="mco-obs" maxlength="300"></div>
+      <div class="fs-15 fw-700" style="text-align:right">Total: <span id="mco-total" class="c-green">R$ 0,00</span></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-compra')">Cancelar</button>
+      <button class="btn btn-primary" id="mco-btn" onclick="salvarCompra()"><i class="fa-solid fa-check"></i> Confirmar Entrada</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Devolução de itens -->
+<div class="modal-backdrop" id="modal-devolucao">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header"><span class="modal-title"><i class="fa-solid fa-rotate-left" style="margin-right:8px;color:var(--amber)"></i>Devolver Itens — Venda <span id="dev-vid"></span></span><button class="btn-icon" onclick="closeModal('modal-devolucao')">✕</button></div>
+    <div class="modal-body">
+      <div class="fs-13 c-text2" style="margin-bottom:10px">Informe a quantidade a devolver de cada item. O estoque será reposto automaticamente.</div>
+      <div id="dev-itens"></div>
+      <div class="form-group" style="margin-top:12px"><label class="form-label">Motivo (opcional)</label>
+        <input class="form-input" id="dev-motivo" placeholder="Ex: produto com defeito, cliente desistiu..."></div>
+      <div class="fs-14 c-text2" style="text-align:right;margin-top:8px">Total a devolver: <b id="dev-total" class="c-amber">R$ 0,00</b></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-devolucao')">Cancelar</button>
+      <button class="btn btn-primary" id="dev-btn" onclick="confirmarDevolucao()"><i class="fa-solid fa-check"></i> Confirmar Devolução</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Empresa -->
 <div class="modal-backdrop" id="modal-empresa">
   <div class="modal" style="max-width:560px">
@@ -3044,13 +3277,18 @@ function applyUser(user) {
   document.getElementById('nav-admin').style.display = user.perfil === 'admin' ? 'block' : 'none';
   const ehMatriz = Number(user.empresa_id) === 1;
   document.getElementById('nav-empresas-item').style.display = ehMatriz ? 'flex' : 'none';
+  document.getElementById('nav-minha-empresa-item').style.display = ehMatriz ? 'none' : 'flex';
+  aplicarLogoPDV(user.empresa_logo);
   aplicarPermissoes(user);
+  carregarNotifs();
+  if (_notifTimer) clearInterval(_notifTimer);
+  _notifTimer = setInterval(carregarNotifs, 120000);
 }
 
 // ── PERMISSÕES ────────────────────────────────────────────────────
 const PERMS_DEFAULTS = {
   admin:    null,
-  gerente:  ['dashboard','pdv','caixa','vendas','historico','produtos','grupos','clientes','estoque','movimentacoes','contas-receber','contas-pagar','despesas','relatorios','recibo'],
+  gerente:  ['dashboard','pdv','caixa','vendas','historico','produtos','grupos','clientes','fornecedores','estoque','compras','movimentacoes','contas-receber','contas-pagar','despesas','relatorios','recibo'],
   operador: ['dashboard','pdv','caixa','vendas','historico','clientes'],
 };
 
@@ -3102,16 +3340,17 @@ function doLogout() {
 // ── Navigation ────────────────────────────────────────────────────
 const pageNames = {
   dashboard:'Dashboard', pdv:'PDV — Ponto de Venda', caixa:'Caixa', vendas:'Nova Venda', historico:'Histórico de Vendas',
-  produtos:'Produtos', grupos:'Grupos', clientes:'Clientes', estoque:'Posição do Estoque',
-  movimentacoes:'Movimentações', 'contas-receber':'Contas a Receber', 'contas-pagar':'Contas a Pagar', despesas:'Lançamento de Despesas', relatorios:'Relatórios',
+  produtos:'Produtos', grupos:'Grupos', clientes:'Clientes', fornecedores:'Fornecedores', estoque:'Posição do Estoque',
+  compras:'Compras / Entrada', movimentacoes:'Movimentações', 'contas-receber':'Contas a Receber', 'contas-pagar':'Contas a Pagar', despesas:'Lançamento de Despesas', relatorios:'Relatórios',
   recibo:'Personalizar Recibo',
-  empresas:'Empresas', 'adm-usuarios':'Usuários',
+  empresas:'Empresas', 'minha-empresa':'Minha Empresa', 'adm-usuarios':'Usuários',
 };
 const pageLoaders = {
   dashboard: loadDashboard, pdv: loadPDV, caixa: loadCaixa, historico: loadHistorico, produtos: loadProdutos,
-  grupos: loadGrupos, clientes: loadClientes, estoque: loadEstoque, movimentacoes: loadMovimentacoes,
+  grupos: loadGrupos, clientes: loadClientes, fornecedores: loadFornecedores, estoque: loadEstoque, compras: loadCompras, movimentacoes: loadMovimentacoes,
   'contas-receber': loadContasReceber, 'contas-pagar': loadContasPagar, despesas: loadDespesas, relatorios: loadRelatorios, recibo: loadReciboConfig,
   empresas: () => { loadEmpresas(); },
+  'minha-empresa': loadMinhaEmpresa,
   'adm-usuarios': () => { loadEmpresasSelect(); loadAdmUsuarios(); },
 };
 
@@ -4272,6 +4511,38 @@ function pdvRecalc() {
 
 let pdvParcelado = false;
 let pdvNumParcelas = 2;
+let pdvSplit = [];   // [{forma, valor}] no pagamento dividido
+
+const PDV_FORMA_LABEL = { dinheiro:'Dinheiro', pix:'PIX', credito:'Crédito', debito:'Débito', transferencia:'Transferência' };
+
+function pdvSplitAdd() {
+  const forma = document.getElementById('pdv-split-forma').value;
+  const valor = +(parseFloat(document.getElementById('pdv-split-valor').value) || 0).toFixed(2);
+  if (valor <= 0) { toast('Informe um valor.', 'warning'); return; }
+  pdvSplit.push({ forma, valor });
+  pdvSplitRender();
+  // sugere o restante no próximo valor
+  const total = pdvGetTotal();
+  const soma = pdvSplit.reduce((s, p) => s + p.valor, 0);
+  document.getElementById('pdv-split-valor').value = Math.max(total - soma, 0).toFixed(2);
+}
+function pdvSplitRemove(i) { pdvSplit.splice(i, 1); pdvSplitRender(); }
+function pdvSplitRender() {
+  const total = pdvGetTotal();
+  const soma = pdvSplit.reduce((s, p) => s + p.valor, 0);
+  const rest = +(total - soma).toFixed(2);
+  document.getElementById('pdv-split-list').innerHTML = pdvSplit.length
+    ? pdvSplit.map((p, i) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span class="fs-13 fw-600">${PDV_FORMA_LABEL[p.forma] || p.forma}</span>
+        <span style="display:flex;align-items:center;gap:10px"><span class="fw-700">${R(p.valor)}</span>
+          <button class="btn-icon" onclick="pdvSplitRemove(${i})" style="color:var(--red)">✕</button></span>
+      </div>`).join('')
+    : '<div class="fs-12 c-text3" style="padding:4px 0">Nenhum pagamento adicionado</div>';
+  document.getElementById('pdv-split-soma').textContent = R(soma);
+  const restEl = document.getElementById('pdv-split-restante');
+  restEl.textContent = R(rest);
+  restEl.className = Math.abs(rest) < 0.01 ? 'c-green' : 'c-red';
+}
 
 function pdvAbrirModalPgto() {
   if (!pdvCart.length) { toast('Adicione ao menos um produto ao carrinho.', 'error'); return; }
@@ -4299,8 +4570,16 @@ function pdvSetPgto(tipo) {
   document.querySelectorAll('.pdv-pgto-btn').forEach(b => b.classList.toggle('active', b.dataset.pgto === tipo));
   const troco = document.getElementById('pdv-troco-box');
   const fiado = document.getElementById('pdv-fiado-box');
+  const split = document.getElementById('pdv-split-box');
   if (troco) troco.style.display = tipo === 'dinheiro' ? 'flex' : 'none';
   if (fiado) fiado.style.display = tipo === 'fiado'    ? 'flex' : 'none';
+  if (split) split.style.display = tipo === 'split'    ? 'flex' : 'none';
+  if (tipo === 'split') {
+    pdvSplit = [];
+    const v = document.getElementById('pdv-split-valor');
+    if (v) v.value = pdvGetTotal().toFixed(2);
+    pdvSplitRender();
+  }
   // Atualiza nome do cliente no fiado
   if (tipo === 'fiado') {
     const nomeEl = document.getElementById('pdv-fiado-cli-nome');
@@ -4469,11 +4748,24 @@ async function pdvFinalizar() {
     const venc = document.getElementById('pdv-fiado-venc')?.value;
     if (!venc) { toast('Informe a data de vencimento.', 'error'); return; }
   }
+  // Pagamento dividido: valida a soma == total
+  let pagamentos = null, pgtoPrincipal = pdvPgto;
+  if (pdvPgto === 'split') {
+    if (!pdvSplit.length) { toast('Adicione ao menos uma forma de pagamento.', 'error'); return; }
+    const total = pdvGetTotal();
+    const soma = +pdvSplit.reduce((s, p) => s + p.valor, 0).toFixed(2);
+    if (Math.abs(soma - total) > 0.05) {
+      toast(`A soma dos pagamentos (${R(soma)}) precisa ser igual ao total (${R(total)}).`, 'error'); return;
+    }
+    pagamentos = pdvSplit.map(p => ({ forma: p.forma, valor: p.valor }));
+    pgtoPrincipal = pdvSplit[0].forma;   // forma principal = primeira do rateio
+  }
   const desc = parseFloat(document.getElementById('pdv-desc').value) || 0;
   const obs  = (document.getElementById('pdv-obs')?.value || '').trim();
   const body = {
     cliente_id:      pdvClienteSel?.id || null,
-    pagamento:       pdvPgto,
+    pagamento:       pgtoPrincipal,
+    pagamentos,
     desconto:        desc,
     observacao:      obs || null,
     data_vencimento: pdvPgto === 'fiado' ? (document.getElementById('pdv-fiado-venc')?.value || null) : null,
@@ -4736,15 +5028,27 @@ async function loadHistorico() {
   try {
     const r = await api.get('/vendas?' + params);
     document.getElementById('h-tbody').innerHTML = r.data.length
-      ? r.data.map(v => `<tr>
+      ? r.data.map(v => {
+          const cancelada = v.status === 'cancelada';
+          const temDev = v.qtd_devolucoes > 0;
+          return `<tr>
           <td class="fw-600 c-blue">#${v.id}</td>
           <td class="fs-12">${fmtDt(v.criado_em)}</td>
           <td>${v.cliente_nome||'<span class="c-text3">Consumidor</span>'}</td>
           <td class="fs-12 c-text3">${v.qtd_itens} iten${v.qtd_itens!==1?'s':''}</td>
-          <td><span class="badge badge-gray">${v.pagamento||'—'}</span></td>
-          <td class="fw-600">${R(v.total)}</td>
-          <td><button class="btn btn-secondary btn-sm" onclick="verVenda(${v.id})">Ver</button></td>
-        </tr>`).join('')
+          <td>${cancelada
+              ? '<span class="badge badge-red">Cancelada</span>'
+              : `<span class="badge badge-gray">${v.pagamento||'—'}</span>${temDev?' <span class="badge badge-amber">devolução</span>':''}`}</td>
+          <td class="fw-600" style="${cancelada?'text-decoration:line-through;color:var(--text3)':''}">${R(v.total)}</td>
+          <td>
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-secondary btn-sm" onclick="verVenda(${v.id})">Ver</button>
+              ${!cancelada ? `
+                <button class="btn btn-sm" style="background:var(--amber-light);color:var(--amber);border:none" onclick="abrirDevolucao(${v.id})" title="Devolver itens"><i class="fa-solid fa-rotate-left"></i></button>
+                <button class="btn btn-sm" style="background:var(--red-light);color:var(--red);border:none" onclick="cancelarVenda(${v.id})" title="Cancelar venda"><i class="fa-solid fa-ban"></i></button>` : ''}
+            </div>
+          </td>
+        </tr>`; }).join('')
       : '<tr><td colspan="7" class="text-center" style="padding:30px;color:var(--text3)">Nenhuma venda encontrada</td></tr>';
   } catch (err) { toast(err.message,'error'); }
 }
@@ -4761,6 +5065,232 @@ async function verVenda(id) {
     mvd.style.cssText = reciboContainerStyle(cfg) + ';background:#fff;color:#111;margin:0 auto';
     mvd.innerHTML = buildReceipt(v, cfg);
   } catch (err) { toast(err.message,'error'); }
+}
+
+// ── DEVOLUÇÃO / CANCELAMENTO ──────────────────────────────────────
+let _devVenda = null;
+
+async function abrirDevolucao(id) {
+  try {
+    const v = await api.get('/vendas/' + id);
+    const itens = (v.itens || []).filter(it => (it.quantidade - (it.qtd_devolvida||0)) > 0);
+    if (!itens.length) { toast('Todos os itens desta venda já foram devolvidos.', 'warning'); return; }
+    _devVenda = v;
+    qs('#dev-vid').textContent = '#' + id;
+    qs('#dev-motivo').value = '';
+    qs('#dev-itens').innerHTML = itens.map(it => {
+      const disp = it.quantidade - (it.qtd_devolvida||0);
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1;min-width:0"><div class="fw-600">${it.descricao}</div>
+          <div class="fs-12 c-text3">${R(it.preco_unit)} · disponível p/ devolver: ${disp}</div></div>
+        <input type="number" class="form-input" data-pid="${it.produto_id}" data-preco="${it.preco_unit}" data-max="${disp}"
+               min="0" max="${disp}" value="0" style="width:84px;text-align:center" oninput="devCalc()">
+      </div>`;
+    }).join('');
+    qs('#dev-total').textContent = R(0);
+    openModal('modal-devolucao');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function devCalc() {
+  let total = 0;
+  qs('#dev-itens').querySelectorAll('input[data-pid]').forEach(i => {
+    let q = parseInt(i.value) || 0; const max = parseInt(i.dataset.max);
+    if (q > max) { q = max; i.value = max; } if (q < 0) { q = 0; i.value = 0; }
+    total += q * parseFloat(i.dataset.preco);
+  });
+  qs('#dev-total').textContent = R(total);
+}
+
+async function confirmarDevolucao() {
+  const itens = [];
+  qs('#dev-itens').querySelectorAll('input[data-pid]').forEach(i => {
+    const q = parseInt(i.value) || 0;
+    if (q > 0) itens.push({ produto_id: +i.dataset.pid, quantidade: q });
+  });
+  if (!itens.length) { toast('Informe a quantidade de ao menos um item.', 'warning'); return; }
+  setBtnLoading('dev-btn', true, 'Confirmar Devolução');
+  try {
+    const r = await api.post(`/vendas/${_devVenda.id}/devolver`, { itens, motivo: qsV('#dev-motivo') || null });
+    toast(`Devolução de ${R(r.valor_devolvido)} registrada! Estoque reposto.`);
+    closeModal('modal-devolucao');
+    loadHistorico();
+  } catch (err) { toast(err.message, 'error'); }
+  finally { setBtnLoading('dev-btn', false, 'Confirmar Devolução'); }
+}
+
+async function cancelarVenda(id) {
+  if (!confirm(`Cancelar a venda #${id}?\n\nTodo o estoque será reposto e as parcelas em aberto (fiado) serão canceladas. Esta ação não pode ser desfeita.`)) return;
+  try {
+    const r = await api.post(`/vendas/${id}/cancelar`, { motivo: 'Cancelamento pelo operador' });
+    toast(`Venda #${id} cancelada. ${R(r.valor_devolvido)} devolvido ao estoque.`);
+    loadHistorico();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+// ── NOTIFICAÇÕES ──────────────────────────────────────────────────
+let _notifTimer = null;
+async function carregarNotifs() {
+  try {
+    const r = await api.get('/notificacoes');
+    const badge = qs('#notif-badge');
+    if (r.total > 0) { badge.textContent = r.total > 9 ? '9+' : r.total; badge.style.display = 'flex'; }
+    else badge.style.display = 'none';
+    const cor = c => c === 'red' ? 'var(--red)' : c === 'amber' ? 'var(--amber)' : 'var(--blue)';
+    qs('#notif-panel').innerHTML = r.notificacoes.length
+      ? r.notificacoes.map(n => `<div class="notif-item" onclick="abrirNotif('${n.pagina}')">
+          <div class="notif-ic" style="background:${cor(n.cor)}"><i class="fa-solid ${n.icone}"></i></div>
+          <div style="min-width:0"><div class="fw-600 fs-13">${n.titulo}</div><div class="fs-12 c-text3">${n.descricao}</div></div>
+        </div>`).join('')
+      : '<div class="text-center c-text3" style="padding:24px;font-size:13px"><i class="fa-solid fa-circle-check" style="font-size:24px;display:block;margin-bottom:6px;color:var(--green)"></i>Tudo em dia!</div>';
+  } catch (err) { /* silencioso */ }
+}
+function toggleNotifs(e) {
+  e.stopPropagation();
+  const p = qs('#notif-panel');
+  const show = p.style.display === 'none';
+  p.style.display = show ? 'block' : 'none';
+  if (show) carregarNotifs();
+}
+function abrirNotif(pagina) { qs('#notif-panel').style.display = 'none'; if (pagina) navigate(pagina); }
+document.addEventListener('click', e => {
+  const p = qs('#notif-panel');
+  if (p && p.style.display !== 'none' && !e.target.closest('#notif-btn') && !e.target.closest('#notif-panel')) p.style.display = 'none';
+});
+
+// ── FORNECEDORES ──────────────────────────────────────────────────
+let _fornecedores = [];
+async function loadFornecedores() {
+  const params = new URLSearchParams({ busca: qsV('#forn-busca'), incluir_inativos: '1' });
+  qs('#forn-tbody').innerHTML = '<tr class="loading-row"><td colspan="6"><div class="spinner"></div></td></tr>';
+  try {
+    const data = await api.get('/fornecedores?' + params);
+    _fornecedores = data;
+    qs('#forn-tbody').innerHTML = data.length ? data.map(f => `<tr style="${f.ativo ? '' : 'opacity:.55'}">
+      <td class="fw-600">${f.nome}</td>
+      <td class="fs-12 c-text3">${f.documento || '—'}</td>
+      <td class="fs-13">${f.telefone || '—'}</td>
+      <td class="fs-13">${f.cidade ? f.cidade + (f.estado ? '/' + f.estado : '') : '—'}</td>
+      <td><span class="badge ${f.ativo ? 'badge-green' : 'badge-gray'}">${f.ativo ? 'Ativo' : 'Inativo'}</span></td>
+      <td><div style="display:flex;gap:4px">
+        <button class="btn btn-secondary btn-sm" onclick="editarFornecedor(${f.id})">Editar</button>
+        <button class="btn btn-sm" style="background:${f.ativo ? 'var(--red-light)' : 'var(--green-light)'};color:${f.ativo ? 'var(--red)' : 'var(--green)'};border:none" onclick="toggleFornecedor(${f.id})">${f.ativo ? 'Desativar' : 'Ativar'}</button>
+      </div></td></tr>`).join('')
+      : '<tr><td colspan="6" class="text-center" style="padding:30px;color:var(--text3)">Nenhum fornecedor cadastrado</td></tr>';
+  } catch (err) { toast(err.message, 'error'); }
+}
+function abrirModalFornecedor(id) {
+  qs('#mforn-titulo').textContent = id ? 'Editar Fornecedor' : 'Novo Fornecedor';
+  qs('#mforn-id').value = id || '';
+  const f = id ? _fornecedores.find(x => x.id === id) : null;
+  qs('#mforn-nome').value = f?.nome || ''; qs('#mforn-doc').value = f?.documento || ''; qs('#mforn-tel').value = f?.telefone || '';
+  qs('#mforn-email').value = f?.email || ''; qs('#mforn-end').value = f?.endereco || ''; qs('#mforn-cid').value = f?.cidade || '';
+  qs('#mforn-uf').value = f?.estado || ''; qs('#mforn-obs').value = f?.observacao || '';
+  openModal('modal-fornecedor');
+}
+function editarFornecedor(id) { abrirModalFornecedor(id); }
+async function salvarFornecedor() {
+  const id = qsV('#mforn-id');
+  const body = {
+    nome: qsV('#mforn-nome').trim(), documento: qsV('#mforn-doc').trim() || null, telefone: qsV('#mforn-tel').trim() || null,
+    email: qsV('#mforn-email').trim() || null, endereco: qsV('#mforn-end').trim() || null, cidade: qsV('#mforn-cid').trim() || null,
+    estado: qsV('#mforn-uf').trim().toUpperCase() || null, observacao: qsV('#mforn-obs').trim() || null,
+  };
+  if (!body.nome) { toast('Nome do fornecedor é obrigatório.', 'error'); return; }
+  setBtnLoading('mforn-btn', true);
+  try {
+    if (id) await api.put('/fornecedores/' + id, body); else await api.post('/fornecedores', body);
+    toast('Fornecedor salvo!'); closeModal('modal-fornecedor'); loadFornecedores();
+  } catch (err) { toast(err.message, 'error'); } finally { setBtnLoading('mforn-btn', false); }
+}
+async function toggleFornecedor(id) {
+  try { await apiFetch('/fornecedores/' + id + '/toggle', { method: 'PATCH' }); loadFornecedores(); }
+  catch (err) { toast(err.message, 'error'); }
+}
+
+// ── COMPRAS / ENTRADA DE MERCADORIA ───────────────────────────────
+let _compraItens = [], _compraProdutos = [];
+async function loadCompras() {
+  const params = new URLSearchParams({ de: qsV('#co-de'), ate: qsV('#co-ate') });
+  qs('#compras-tbody').innerHTML = '<tr class="loading-row"><td colspan="8"><div class="spinner"></div></td></tr>';
+  try {
+    const data = await api.get('/compras?' + params);
+    qs('#compras-tbody').innerHTML = data.length ? data.map(c => `<tr>
+      <td class="fw-600 c-blue">#${c.id}</td>
+      <td class="fs-12">${fmtDt(c.criado_em)}</td>
+      <td class="fs-13">${c.numero_documento || '—'}</td>
+      <td>${c.fornecedor}</td>
+      <td class="text-center">${c.qtd_itens}</td>
+      <td class="fw-600">${R(c.total)}</td>
+      <td>${c.gerou_conta_pagar ? '<span class="badge badge-amber">a pagar</span>' : '<span class="c-text3">—</span>'}</td>
+      <td><button class="btn btn-secondary btn-sm" onclick="verCompra(${c.id})">Ver</button></td>
+    </tr>`).join('')
+      : '<tr><td colspan="8" class="text-center" style="padding:30px;color:var(--text3)">Nenhuma entrada registrada no período</td></tr>';
+  } catch (err) { toast(err.message, 'error'); }
+}
+async function abrirModalCompra() {
+  _compraItens = [];
+  try {
+    const [prods, forns] = await Promise.all([
+      api.get('/produtos?status=ativo&limit=1000'),
+      api.get('/fornecedores'),
+    ]);
+    _compraProdutos = prods.data;
+    qs('#mco-prod').innerHTML = _compraProdutos.map(p => `<option value="${p.id}" data-custo="${p.preco_custo}">${p.codigo} — ${p.descricao}</option>`).join('');
+    qs('#mco-fornecedor').innerHTML = '<option value="">— Sem fornecedor —</option>' + forns.map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
+    qs('#mco-doc').value = ''; qs('#mco-qtd').value = '1'; qs('#mco-custo').value = '0'; qs('#mco-obs').value = '';
+    qs('#mco-att-custo').checked = true; qs('#mco-gera-cp').checked = false;
+    qs('#mco-venc-wrap').style.display = 'none'; qs('#mco-venc').value = '';
+    qs('#mco-prod').onchange = () => { const o = qs('#mco-prod').selectedOptions[0]; if (o) qs('#mco-custo').value = o.dataset.custo || '0'; };
+    qs('#mco-prod').onchange();
+    compraRenderItens();
+    openModal('modal-compra');
+  } catch (err) { toast(err.message, 'error'); }
+}
+function compraAddItem() {
+  const pid = parseInt(qsV('#mco-prod')); const qtd = parseInt(qsV('#mco-qtd')) || 0; const custo = parseFloat(qsV('#mco-custo')) || 0;
+  if (!pid || qtd <= 0) { toast('Selecione um produto e a quantidade.', 'warning'); return; }
+  const prod = _compraProdutos.find(p => p.id === pid);
+  const existe = _compraItens.find(i => i.produto_id === pid);
+  if (existe) { existe.quantidade += qtd; existe.custo_unit = custo; }
+  else _compraItens.push({ produto_id: pid, descricao: prod.descricao, codigo: prod.codigo, quantidade: qtd, custo_unit: custo });
+  qs('#mco-qtd').value = '1';
+  compraRenderItens();
+}
+function compraRemoveItem(pid) { _compraItens = _compraItens.filter(i => i.produto_id !== pid); compraRenderItens(); }
+function compraRenderItens() {
+  let total = 0;
+  qs('#mco-itens').innerHTML = _compraItens.length ? _compraItens.map(i => {
+    const sub = i.quantidade * i.custo_unit; total += sub;
+    return `<tr><td>${i.codigo} — ${i.descricao}</td><td class="text-center">${i.quantidade}</td><td>${R(i.custo_unit)}</td><td class="fw-600">${R(sub)}</td>
+      <td><button class="btn-icon" onclick="compraRemoveItem(${i.produto_id})" style="color:var(--red)">✕</button></td></tr>`;
+  }).join('') : '<tr><td colspan="5" class="text-center c-text3" style="padding:14px">Nenhum item adicionado</td></tr>';
+  qs('#mco-total').textContent = R(total);
+}
+async function salvarCompra() {
+  if (!_compraItens.length) { toast('Adicione ao menos um item.', 'warning'); return; }
+  const body = {
+    fornecedor_id: qsV('#mco-fornecedor') || null,
+    numero_documento: qsV('#mco-doc').trim() || null,
+    observacao: qsV('#mco-obs').trim() || null,
+    atualizar_custo: qs('#mco-att-custo').checked,
+    gerar_conta_pagar: qs('#mco-gera-cp').checked,
+    data_vencimento: qsV('#mco-venc') || null,
+    itens: _compraItens.map(i => ({ produto_id: i.produto_id, quantidade: i.quantidade, custo_unit: i.custo_unit })),
+  };
+  setBtnLoading('mco-btn', true, 'Confirmar Entrada');
+  try {
+    const r = await api.post('/compras', body);
+    toast(`Entrada #${r.id} registrada! Estoque atualizado.`);
+    closeModal('modal-compra'); loadCompras();
+  } catch (err) { toast(err.message, 'error'); } finally { setBtnLoading('mco-btn', false, 'Confirmar Entrada'); }
+}
+async function verCompra(id) {
+  try {
+    const c = await api.get('/compras/' + id);
+    const itens = c.itens.map(i => `• ${i.codigo} — ${i.descricao}: ${i.quantidade} × ${R(i.custo_unit)} = ${R(i.subtotal)}`).join('\n');
+    alert(`Compra #${c.id}\nFornecedor: ${c.fornecedor}\nDocumento: ${c.numero_documento || '—'}\n\n${itens}\n\nTotal: ${R(c.total)}`);
+  } catch (err) { toast(err.message, 'error'); }
 }
 
 // ── ESTOQUE ───────────────────────────────────────────────────────
@@ -5404,11 +5934,14 @@ const REL_ICONES = {
   'curva-abc':'fa-ranking-star', 'lucratividade':'fa-coins', 'margem-categoria':'fa-percent',
   'estoque':'fa-boxes-stacked', 'estoque-baixo':'fa-triangle-exclamation',
   'estoque-parado':'fa-box-open', 'estoque-categoria':'fa-cubes',
+  'vendas-uf':'fa-map-location-dot', 'descontos':'fa-tag',
   'contas-receber':'fa-hand-holding-dollar', 'aging-receber':'fa-hourglass-half',
-  'contas-pagar':'fa-file-invoice-dollar',
+  'contas-pagar':'fa-file-invoice-dollar', 'aging-pagar':'fa-hourglass-end',
   'recebimentos':'fa-money-bill-wave', 'pagamentos':'fa-money-check-dollar',
   'despesas-categoria':'fa-tags', 'caixa':'fa-cash-register', 'movimentacoes-caixa':'fa-money-bill-transfer',
+  'resultado-mensal':'fa-chart-column',
   'clientes':'fa-users', 'clientes-inativos':'fa-user-clock', 'novos-clientes':'fa-user-plus',
+  'clientes-cidade':'fa-map-pin',
   'movimentacoes':'fa-right-left', 'fluxo-caixa':'fa-scale-balanced', 'dre':'fa-file-invoice',
 };
 const REL_CORES = {
@@ -5422,8 +5955,11 @@ const REL_CORES = {
   'contas-receber':'#10b981', 'aging-receber':'#dc2626',
   'contas-pagar':'#f97316',
   'recebimentos':'#22c55e', 'pagamentos':'#fb7185',
+  'vendas-uf':'#0ea5e9', 'descontos':'#db2777',
   'despesas-categoria':'#fb923c', 'caixa':'#06b6d4', 'movimentacoes-caixa':'#7c3aed',
+  'aging-pagar':'#ea580c', 'resultado-mensal':'#4f46e5',
   'clientes':'#6366f1', 'clientes-inativos':'#94a3b8', 'novos-clientes':'#22c55e',
+  'clientes-cidade':'#14b8a6',
   'movimentacoes':'#14b8a6', 'fluxo-caixa':'#a855f7', 'dre':'#4f46e5',
 };
 
@@ -5944,9 +6480,9 @@ function relRenderGrafico(g) {
   const type = g.tipo === 'doughnut' ? 'doughnut' : (g.tipo === 'line' ? 'line' : 'bar');
   // Heurística de formatação do tooltip (moeda quando os valores são financeiros)
   const moedaRel = ['vendas', 'faturamento-mensal', 'vendas-pagamento', 'vendas-categoria', 'vendas-operador',
-    'vendas-horario', 'vendas-dia-semana', 'curva-abc', 'lucratividade', 'margem-categoria',
-    'estoque-categoria', 'aging-receber', 'clientes', 'recebimentos', 'pagamentos',
-    'despesas-categoria', 'fluxo-caixa'];
+    'vendas-horario', 'vendas-dia-semana', 'vendas-uf', 'descontos', 'curva-abc', 'lucratividade',
+    'margem-categoria', 'estoque-categoria', 'aging-receber', 'aging-pagar', 'resultado-mensal',
+    'clientes', 'recebimentos', 'pagamentos', 'despesas-categoria', 'fluxo-caixa'];
   const isMoeda = moedaRel.includes(relTipoAtual);
   const fmtVal = v => isMoeda ? R(v) : Number(v).toLocaleString('pt-BR');
 
@@ -5968,7 +6504,8 @@ function relRenderGrafico(g) {
     return;
   }
 
-  const labels = g.labels.map(l => g.tipo === 'line' ? fmtD(l) : l);
+  const ehData = v => v instanceof Date || /^\d{4}-\d{2}-\d{2}/.test(String(v));
+  const labels = g.labels.map(l => (g.tipo === 'line' && ehData(l)) ? fmtD(l) : l);
   relChart = new Chart(qs('#rel-chart'), {
     type,
     data: {
@@ -6183,6 +6720,107 @@ async function toggleEmpresa(id) {
     await apiFetch('/admin/empresas/' + id + '/toggle', { method: 'PATCH' });
     loadEmpresas();
   } catch (err) { toast(err.message, 'error'); }
+}
+
+// ── MINHA EMPRESA (admin-cliente) ─────────────────────────────────
+let meLogoBase64 = '';   // logo a ser enviada (''=remover/sem logo)
+
+// Aplica a logo como marca d'água no fundo do PDV
+function aplicarLogoPDV(logo) {
+  document.documentElement.style.setProperty('--pdv-logo', logo ? `url("${logo}")` : 'none');
+}
+
+function meSetLogoPreview(src) {
+  const img = qs('#me-logo-img'), ph = qs('#me-logo-ph'), rm = qs('#me-logo-rm');
+  if (src) {
+    img.src = src; img.style.display = 'block'; ph.style.display = 'none'; rm.style.display = '';
+  } else {
+    img.src = ''; img.style.display = 'none'; ph.style.display = 'block'; rm.style.display = 'none';
+  }
+}
+
+function meLogoChange(input) {
+  if (!input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX = 512;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+      else { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      meLogoBase64 = canvas.toDataURL('image/png');   // png preserva transparência
+      meSetLogoPreview(meLogoBase64);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function meLogoRemover() {
+  meLogoBase64 = '';
+  meSetLogoPreview('');
+  qs('#me-logo-input').value = '';
+}
+
+function usoBar(qtd, limite) {
+  qtd = Number(qtd) || 0;
+  if (!limite) return `<div class="fw-600">${qtd} <span class="c-text3" style="font-weight:400">/ ilimitado</span></div>`;
+  const pct = Math.min(100, Math.round((qtd / limite) * 100));
+  const cor = pct >= 100 ? 'var(--red)' : pct >= 80 ? 'var(--amber)' : 'var(--green)';
+  return `<div class="fw-600">${qtd} <span class="c-text3" style="font-weight:400">/ ${limite}</span> <span class="c-text3 fs-12" style="font-weight:400">(${pct}%)</span></div>
+    <div style="height:6px;background:var(--surface2);border-radius:4px;overflow:hidden;margin-top:4px"><div style="height:100%;width:${pct}%;background:${cor};transition:width var(--dur)"></div></div>`;
+}
+
+async function loadMinhaEmpresa() {
+  try {
+    const e = await api.get('/admin/minha-empresa');
+    const st = EMP_STATUS[e.status] || EMP_STATUS.ativa;
+    qs('#me-plano').textContent       = e.plano || '—';
+    qs('#me-status').innerHTML        = `<span class="badge ${st.cls}">${st.txt}</span>`;
+    qs('#me-contratacao').textContent = e.data_contratacao ? new Date(e.data_contratacao).toLocaleDateString('pt-BR') : '—';
+    qs('#me-vencimento').textContent  = e.data_vencimento  ? new Date(e.data_vencimento).toLocaleDateString('pt-BR')  : '—';
+    qs('#me-uso-usuarios').innerHTML  = usoBar(e.qtd_usuarios, e.limite_usuarios);
+    qs('#me-uso-produtos').innerHTML  = usoBar(e.qtd_produtos, e.limite_produtos);
+    qs('#me-uso-clientes').innerHTML  = usoBar(e.qtd_clientes, e.limite_clientes);
+    qs('#me-razao').value = e.razao_social || '';
+    qs('#me-cnpj').value  = e.cnpj || '';
+    qs('#me-tel').value   = e.telefone || '';
+    qs('#me-email').value = e.email || '';
+    meLogoBase64 = e.logo || '';
+    meSetLogoPreview(e.logo || '');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function salvarMinhaEmpresa() {
+  const body = {
+    razao_social: qsV('#me-razao').trim(),
+    cnpj:         qsV('#me-cnpj').trim()  || null,
+    telefone:     qsV('#me-tel').trim()   || null,
+    email:        qsV('#me-email').trim() || null,
+    logo:         meLogoBase64 || '',
+  };
+  if (!body.razao_social) { toast('Razão social obrigatória.', 'error'); return; }
+  setBtnLoading('me-btn', true);
+  try {
+    await api.put('/admin/minha-empresa', body);
+    toast('Dados atualizados!');
+    const u = Auth.getUser();
+    if (u) {
+      u.empresa_nome = body.razao_social;
+      u.empresa_logo = body.logo || null;
+      Auth.setUser(u);
+      qs('#sidebar-empresa').textContent = body.razao_social;
+      aplicarLogoPDV(u.empresa_logo);
+    }
+  } catch (err) {
+    toast(err.message, 'error');
+  } finally {
+    setBtnLoading('me-btn', false);
+  }
 }
 
 // ── ADMIN: USUÁRIOS ───────────────────────────────────────────────
