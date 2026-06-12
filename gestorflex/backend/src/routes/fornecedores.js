@@ -6,7 +6,7 @@ const { auth } = require('../middleware/auth');
 // GET /api/fornecedores?busca=&incluir_inativos=
 router.get('/', auth, async (req, res) => {
   try {
-    const emp = req.user.empresa_id;
+    const emp = req.user.grupo_id;
     const busca = req.query.busca || '';
     let where = 'empresa_id=@emp';
     const params = { emp };
@@ -30,7 +30,7 @@ router.post('/', auth, async (req, res) => {
       VALUES (@emp, @nome, @doc, @tel, @email, @end, @cid, @uf, @obs)
       RETURNING id
     `, {
-      emp: req.user.empresa_id, nome: b.nome.trim(), doc: b.documento || null, tel: b.telefone || null,
+      emp: req.user.grupo_id, nome: b.nome.trim(), doc: b.documento || null, tel: b.telefone || null,
       email: b.email || null, end: b.endereco || null, cid: b.cidade || null,
       uf: b.estado || null, obs: b.observacao || null,
     });
@@ -50,7 +50,7 @@ router.put('/:id', auth, async (req, res) => {
     `, {
       nome: b.nome.trim(), doc: b.documento || null, tel: b.telefone || null, email: b.email || null,
       end: b.endereco || null, cid: b.cidade || null, uf: b.estado || null, obs: b.observacao || null,
-      id: parseInt(req.params.id), emp: req.user.empresa_id,
+      id: parseInt(req.params.id), emp: req.user.grupo_id,
     });
     res.json({ ok: true });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao atualizar fornecedor.' }); }
@@ -60,7 +60,7 @@ router.put('/:id', auth, async (req, res) => {
 router.patch('/:id/toggle', auth, async (req, res) => {
   try {
     await query(`UPDATE Fornecedores SET ativo = NOT ativo WHERE id=@id AND empresa_id=@emp`,
-      { id: parseInt(req.params.id), emp: req.user.empresa_id });
+      { id: parseInt(req.params.id), emp: req.user.grupo_id });
     res.json({ ok: true });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao alterar status.' }); }
 });

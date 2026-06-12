@@ -850,6 +850,9 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
     </div>
   </nav>
   <div class="sidebar-footer">
+    <button id="btn-trocar-empresa" onclick="abrirSelecionarEmpresa()" style="display:none;width:100%;margin-bottom:8px;font-size:12px;gap:6px" class="btn btn-secondary">
+      <i class="fa-solid fa-building-circle-arrow-right"></i> Trocar Empresa
+    </button>
     <div class="user-card">
       <div class="user-avatar" id="user-avatar">--</div>
       <div class="user-info">
@@ -2527,6 +2530,12 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
 
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Dados da empresa</div>
       <div class="form-group"><label class="form-label">Razão Social *</label><input class="form-input" id="mse-razao" placeholder="Nome da empresa"></div>
+      <div class="form-group" id="mse-matriz-group" style="display:none">
+        <label class="form-label">Empresa Matriz <span style="font-size:11px;font-weight:400;color:var(--text3)">(opcional — deixe em branco para criar como independente)</span></label>
+        <select class="form-select" id="mse-matriz">
+          <option value="">— Independente —</option>
+        </select>
+      </div>
       <div class="form-row cols-2">
         <div class="form-group"><label class="form-label">CNPJ</label><input class="form-input" id="mse-cnpj" placeholder="00.000.000/0001-00"></div>
         <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" id="mse-tel" placeholder="(00) 00000-0000"></div>
@@ -2793,6 +2802,19 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-caixa-fechar')">Cancelar</button>
       <button class="btn btn-primary" id="mcxf-btn" onclick="confirmarFecharCaixa()"><i class="fa-solid fa-lock"></i> Fechar Caixa</button>
+    </div>
+  </div>
+</div>
+
+<!-- Seleção de Empresa (grupo empresarial) -->
+<div class="modal-backdrop" id="modal-selecionar-empresa">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <span class="modal-title"><i class="fa-solid fa-building"></i> Selecionar Empresa</span>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text2);margin:0 0 16px;font-size:.9em">Escolha em qual empresa deseja trabalhar:</p>
+      <div id="modal-se-lista" style="display:flex;flex-direction:column;gap:8px"></div>
     </div>
   </div>
 </div>
@@ -3346,12 +3368,16 @@ async function doLogin() {
   try {
     const data = await api.post('/auth/login', { email, senha });
     Auth.setToken(data.token);
-    Auth.setUser(data.user);
     applyTheme(data.user.tema === 'dark');
     hideLogin();
-    if (data.user.perfil === 'saas') {
+    if (data.empresas && data.empresas.length > 1) {
+      Auth.setUser({ ...data.user, _empresas: data.empresas });
+      abrirSelecionarEmpresa();
+    } else if (data.user.perfil === 'saas') {
+      Auth.setUser(data.user);
       saasEntrar(data.user);
     } else {
+      Auth.setUser(data.user);
       applyUser(data.user);
       navigate('dashboard');
     }
@@ -3390,6 +3416,9 @@ function applyUser(user) {
   const ehMatriz = Number(user.empresa_id) === 1;
   document.getElementById('nav-empresas-item').style.display = ehMatriz ? 'flex' : 'none';
   document.getElementById('nav-minha-empresa-item').style.display = ehMatriz ? 'none' : 'flex';
+  // Botão de troca de empresa para grupos empresariais
+  const empresasDisponiveis = Auth.getUser()?._empresas;
+  qs('#btn-trocar-empresa').style.display = (empresasDisponiveis?.length > 1) ? '' : 'none';
   aplicarLogoPDV(user.empresa_logo);
   aplicarPermissoes(user);
   carregarNotifs();
@@ -3447,6 +3476,46 @@ function madmuGetPermissoes() {
 function doLogout() {
   Auth.clear();
   showLogin();
+}
+
+// ── Seleção de Empresa (grupo empresarial) ─────────────────────────
+function abrirSelecionarEmpresa() {
+  const user  = Auth.getUser();
+  const lista = user?._empresas || [];
+  let html = '';
+  lista.forEach(e => {
+    const badge = e.tipo === 'matriz'
+      ? `<span style="font-size:10px;background:var(--primary);color:#fff;padding:2px 8px;border-radius:20px;font-weight:600">Matriz</span>`
+      : `<span style="font-size:10px;background:var(--border);color:var(--text2);padding:2px 8px;border-radius:20px;font-weight:600">Filial</span>`;
+    html += `<button onclick="selecionarEmpresa(${e.id})"
+      style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px 16px;background:var(--card);border:2px solid var(--border);border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;color:var(--text1);text-align:left;transition:border-color .15s"
+      onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
+      <span><i class="fa-solid fa-building" style="margin-right:8px;color:var(--primary)"></i>${e.razao_social}</span>
+      ${badge}
+    </button>`;
+  });
+  qs('#modal-se-lista').innerHTML = html || '<p style="color:var(--text3)">Nenhuma empresa disponível.</p>';
+  openModal('modal-selecionar-empresa');
+}
+
+async function selecionarEmpresa(empresa_id) {
+  try {
+    const res = await api.post('/auth/selecionar-empresa', { empresa_id });
+    const empresasAtual = Auth.getUser()?._empresas;
+    Auth.setToken(res.token);
+    Auth.setUser({ ...res.user, _empresas: empresasAtual });
+    closeModal('modal-selecionar-empresa');
+    const u = Auth.getUser();
+    qs('#btn-trocar-empresa').style.display = (u._empresas?.length > 1) ? '' : 'none';
+    if (res.user.perfil === 'saas') {
+      saasEntrar(res.user);
+    } else {
+      applyUser(res.user);
+      navigate('dashboard');
+    }
+  } catch (err) {
+    toast(err.message, 'error');
+  }
 }
 
 // ── Navigation ────────────────────────────────────────────────────
@@ -7711,6 +7780,7 @@ async function saasAbrirModalEmpresa(id) {
   if (id) {
     document.getElementById('mse-titulo').innerHTML = '<i class="fa-solid fa-building" style="color:var(--blue);margin-right:8px"></i>Editar Empresa';
     document.getElementById('mse-admin-section').style.display = 'none';
+    document.getElementById('mse-matriz-group').style.display = 'none';
     try {
       const e = await api.get('/saas/empresas/' + id);
       document.getElementById('mse-id').value    = e.id;
@@ -7731,6 +7801,20 @@ async function saasAbrirModalEmpresa(id) {
   } else {
     document.getElementById('mse-titulo').innerHTML = '<i class="fa-solid fa-building" style="color:var(--blue);margin-right:8px"></i>Novo Cliente';
     document.getElementById('mse-admin-section').style.display = 'block';
+    document.getElementById('mse-matriz-group').style.display = 'block';
+    document.getElementById('mse-matriz').value = '';
+    // Popula dropdown de matrizes com empresas existentes
+    try {
+      const empresas = await api.get('/saas/empresas');
+      const sel = document.getElementById('mse-matriz');
+      sel.innerHTML = '<option value="">— Independente —</option>';
+      empresas.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e.id;
+        opt.textContent = e.razao_social;
+        sel.appendChild(opt);
+      });
+    } catch (_) {}
   }
   openModal('modal-saas-empresa');
 }
@@ -7757,6 +7841,8 @@ async function saasSalvarEmpresa() {
     body.admin_nome  = document.getElementById('mse-admin-nome').value.trim();
     body.admin_email = document.getElementById('mse-admin-email').value.trim();
     body.admin_senha = document.getElementById('mse-admin-senha').value;
+    const matrizVal  = document.getElementById('mse-matriz').value;
+    if (matrizVal) body.matriz_id = parseInt(matrizVal);
   }
   setBtnLoading('mse-btn', true);
   try {

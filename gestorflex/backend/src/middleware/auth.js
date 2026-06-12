@@ -9,7 +9,9 @@ function auth(req, res, next) {
   const token = header.slice(7);
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = payload; // { id, empresa_id, nome, email, perfil }
+    req.user = payload;
+    // backward compat: tokens antigos sem grupo_id usam empresa_id como raiz
+    if (!req.user.grupo_id) req.user.grupo_id = req.user.empresa_id;
     next();
   } catch {
     return res.status(401).json({ error: 'Token inválido ou expirado.' });

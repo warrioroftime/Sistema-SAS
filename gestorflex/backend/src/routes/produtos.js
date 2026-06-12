@@ -19,7 +19,7 @@ router.get('/', auth, async (req, res) => {
   try {
     const { busca = '', categoria = '', status = '', page = 1, limit = 200 } = req.query;
     let where = `p.empresa_id = @emp`;
-    const params = { emp: req.user.empresa_id };
+    const params = { emp: req.user.grupo_id };
 
     if (busca) {
       where += ` AND (p.descricao LIKE @busca OR p.codigo LIKE @busca OR COALESCE(p.codigo_barras,'') LIKE @busca)`;
@@ -58,7 +58,7 @@ router.get('/categorias', auth, async (req, res) => {
   try {
     const r = await query(
       'SELECT id, nome FROM Categorias WHERE empresa_id=@emp ORDER BY nome',
-      { emp: req.user.empresa_id }
+      { emp: req.user.grupo_id }
     );
     res.json(r.recordset);
   } catch (err) {
@@ -71,7 +71,7 @@ router.get('/:id', auth, async (req, res) => {
   try {
     const r = await query(
       BASE + ' AND p.id = @id',
-      { emp: req.user.empresa_id, id: parseInt(req.params.id) }
+      { emp: req.user.grupo_id, id: parseInt(req.params.id) }
     );
     if (!r.recordset[0]) return res.status(404).json({ error: 'Produto não encontrado.' });
     res.json(r.recordset[0]);
@@ -91,8 +91,8 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ error: 'Descrição e preço de venda são obrigatórios.' });
     }
 
-    await checarLimite(req.user.empresa_id, 'produtos');
-    if (foto) await checarArmazenamento(req.user.empresa_id, foto);
+    await checarLimite(req.user.grupo_id, 'produtos');
+    if (foto) await checarArmazenamento(req.user.grupo_id, foto);
 
     codigo = codigo ? String(codigo).trim() : '';
 
@@ -100,14 +100,14 @@ router.post('/', auth, async (req, res) => {
       // Código não informado: gera o próximo sequencial (maior código numérico + 1)
       const seq = await query(
         `SELECT MAX(CASE WHEN codigo ~ '^[0-9]+$' THEN codigo::INTEGER ELSE NULL END) AS maxcod FROM Produtos WHERE empresa_id=@emp`,
-        { emp: req.user.empresa_id }
+        { emp: req.user.grupo_id }
       );
       codigo = String((seq.recordset[0].maxcod || 0) + 1);
     } else {
       // Código informado manualmente: garante que não está duplicado
       const dup = await query(
         'SELECT id FROM Produtos WHERE empresa_id=@emp AND codigo=@cod',
-        { emp: req.user.empresa_id, cod: codigo }
+        { emp: req.user.grupo_id, cod: codigo }
       );
       if (dup.recordset.length) return res.status(409).json({ error: 'Código já cadastrado.' });
     }
@@ -118,7 +118,7 @@ router.post('/', auth, async (req, res) => {
       VALUES (@emp, @cod, @barras, @desc, @cat, @custo, @preco, @est, @min, @st, @ce, @foto)
       RETURNING id
     `, {
-      emp:    req.user.empresa_id,
+      emp:    req.user.grupo_id,
       cod:    codigo,
       barras: codigo_barras ? String(codigo_barras).trim() : null,
       desc:   descricao,
@@ -140,12 +140,12 @@ router.post('/', auth, async (req, res) => {
         INSERT INTO MovimentacoesEstoque
           (empresa_id, produto_id, tipo, quantidade, saldo_anterior, saldo_atual, origem, usuario_id)
         VALUES (@emp, @pid, 'entrada', @qtd, 0, @qtd, 'Estoque inicial', @uid)
-      `, { emp: req.user.empresa_id, pid: newId, qtd: parseInt(estoque), uid: req.user.id });
+      `, { emp: req.user.grupo_id, pid: newId, qtd: parseInt(estoque), uid: req.user.id });
     }
 
     const prod = await query(
       BASE + ' AND p.id = @id',
-      { emp: req.user.empresa_id, id: newId }
+      { emp: req.user.grupo_id, id: newId }
     );
     res.status(201).json(prod.recordset[0]);
   } catch (err) {
@@ -165,17 +165,17 @@ router.put('/:id', auth, async (req, res) => {
     // Verificar posse
     const ex = await query(
       'SELECT id FROM Produtos WHERE id=@id AND empresa_id=@emp',
-      { id, emp: req.user.empresa_id }
+      { id, emp: req.user.grupo_id }
     );
     if (!ex.recordset.length) return res.status(404).json({ error: 'Produto não encontrado.' });
 
-    if (foto) await checarArmazenamento(req.user.empresa_id, foto);
+    if (foto) await checarArmazenamento(req.user.grupo_id, foto);
 
     // Código duplicado (exceto o próprio)
     if (codigo) {
       const dup = await query(
         'SELECT id FROM Produtos WHERE empresa_id=@emp AND codigo=@cod AND id<>@id',
-        { emp: req.user.empresa_id, cod: codigo, id }
+        { emp: req.user.grupo_id, cod: codigo, id }
       );
       if (dup.recordset.length) return res.status(409).json({ error: 'Código já em uso.' });
     }
@@ -195,7 +195,7 @@ router.put('/:id', auth, async (req, res) => {
         atualizado_em    = NOW()
       WHERE id=@id AND empresa_id=@emp
     `, {
-      id, emp: req.user.empresa_id,
+      id, emp: req.user.grupo_id,
       cod:       codigo        ?? null,
       barrasSet: codigo_barras !== undefined,
       barras:    codigo_barras !== undefined ? (codigo_barras ? String(codigo_barras).trim() : null) : null,
@@ -209,7 +209,7 @@ router.put('/:id', auth, async (req, res) => {
       foto:      foto !== undefined ? (foto || null) : null,
     });
 
-    const prod = await query(BASE + ' AND p.id=@id', { emp: req.user.empresa_id, id });
+    const prod = await query(BASE + ' AND p.id=@id', { emp: req.user.grupo_id, id });
     res.json(prod.recordset[0]);
   } catch (err) {
     if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
@@ -230,13 +230,13 @@ router.delete('/:id', auth, async (req, res) => {
       // Apenas inativar, não excluir fisicamente
       await query(
         'UPDATE Produtos SET status=\'inativo\', atualizado_em=NOW() WHERE id=@id AND empresa_id=@emp',
-        { id, emp: req.user.empresa_id }
+        { id, emp: req.user.grupo_id }
       );
       return res.json({ ok: true, aviso: 'Produto possui vendas; foi inativado em vez de excluído.' });
     }
     await query(
       'DELETE FROM Produtos WHERE id=@id AND empresa_id=@emp',
-      { id, emp: req.user.empresa_id }
+      { id, emp: req.user.grupo_id }
     );
     res.json({ ok: true });
   } catch (err) {

@@ -12,7 +12,7 @@ router.post('/grupos', async (req, res) => {
   if (!Array.isArray(dados) || !dados.length)
     return res.status(400).json({ error: 'Nenhum dado fornecido.' });
 
-  const emp = req.user.empresa_id;
+  const emp = req.user.grupo_id;
   const erros = [];
   let importados = 0;
 
@@ -40,7 +40,7 @@ router.post('/produtos', async (req, res) => {
   if (!Array.isArray(dados) || !dados.length)
     return res.status(400).json({ error: 'Nenhum dado fornecido.' });
 
-  const emp = req.user.empresa_id;
+  const emp = req.user.grupo_id;
   const erros = [];
   let importados = 0;
 
@@ -119,7 +119,7 @@ router.post('/clientes', async (req, res) => {
   if (!Array.isArray(dados) || !dados.length)
     return res.status(400).json({ error: 'Nenhum dado fornecido.' });
 
-  const emp = req.user.empresa_id;
+  const emp = req.user.grupo_id;
   const erros = [];
   let importados = 0;
 
@@ -163,7 +163,7 @@ router.post('/fornecedores', async (req, res) => {
   if (!Array.isArray(dados) || !dados.length)
     return res.status(400).json({ error: 'Nenhum dado fornecido.' });
 
-  const emp = req.user.empresa_id;
+  const emp = req.user.grupo_id;
   const erros = [];
   let importados = 0;
 

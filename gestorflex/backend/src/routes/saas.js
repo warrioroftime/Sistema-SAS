@@ -146,13 +146,15 @@ router.post('/empresas', async (req, res) => {
     if (!b.razao_social) return res.status(400).json({ error: 'Razão social obrigatória.' });
     const status = STATUS_EMP.includes(b.status) ? b.status : 'ativa';
 
+    const matrizId = b.matriz_id ? parseInt(b.matriz_id) : null;
+
     const r = await query(`
       INSERT INTO Empresas
         (razao_social, cnpj, email, telefone, plano, data_contratacao, data_vencimento,
          status, ativo, limite_usuarios, limite_produtos, limite_clientes,
-         limite_armazenamento, trial_expira_em)
+         limite_armazenamento, trial_expira_em, matriz_id)
       VALUES (@razao_social, @cnpj, @email, @telefone, @plano, @dc, @dv,
-              @status, @ativo, @lu, @lp, @lc, @larm, @trial)
+              @status, @ativo, @lu, @lp, @lc, @larm, @trial, @mid)
       RETURNING id
     `, {
       razao_social: b.razao_social, cnpj: b.cnpj||null, email: b.email||null, telefone: b.telefone||null,
@@ -160,6 +162,7 @@ router.post('/empresas', async (req, res) => {
       status, ativo: status === 'ativa',
       lu: numOrNull(b.limite_usuarios), lp: numOrNull(b.limite_produtos), lc: numOrNull(b.limite_clientes),
       larm: numOrNull(b.limite_armazenamento), trial: dateOrNull(b.trial_expira_em),
+      mid: matrizId,
     });
 
     const empresaId = r.recordset[0].id;
@@ -272,6 +275,21 @@ router.post('/usuarios/:id/reset-senha', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao redefinir senha.' });
+  }
+});
+
+// ── FILIAIS DE UMA EMPRESA ───────────────────────────────────────
+router.get('/empresas/:id/filiais', async (req, res) => {
+  try {
+    const r = await query(
+      `SELECT id, razao_social, cnpj, status, ativo FROM Empresas
+       WHERE matriz_id=@id ORDER BY razao_social`,
+      { id: parseInt(req.params.id) }
+    );
+    res.json(r.recordset);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao listar filiais.' });
   }
 });
 

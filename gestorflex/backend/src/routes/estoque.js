@@ -8,7 +8,7 @@ router.get('/', auth, async (req, res) => {
   try {
     const { busca = '', filtro = '' } = req.query;
     let where = `p.empresa_id = @emp AND p.status = 'ativo'`;
-    const params = { emp: req.user.empresa_id };
+    const params = { emp: req.user.grupo_id };
 
     if (busca) {
       where += ` AND (p.descricao LIKE @b OR p.codigo LIKE @b)`;
@@ -39,7 +39,7 @@ router.get('/', auth, async (req, res) => {
         SUM(CASE WHEN estoque = 0 THEN 1 ELSE 0 END)  AS em_falta,
         SUM(CASE WHEN estoque > 0 AND estoque <= estoque_min THEN 1 ELSE 0 END) AS critico
       FROM Produtos WHERE empresa_id=@emp AND status='ativo'
-    `, { emp: req.user.empresa_id });
+    `, { emp: req.user.grupo_id });
 
     res.json({ data: r.recordset, resumo: resumo.recordset[0] });
   } catch (err) {
@@ -97,7 +97,7 @@ router.post('/entrada', auth, async (req, res) => {
     // Verificar produto da empresa
     const pR = await query(
       'SELECT id, descricao, estoque FROM Produtos WHERE id=@pid AND empresa_id=@emp',
-      { pid: parseInt(produto_id), emp: req.user.empresa_id }
+      { pid: parseInt(produto_id), emp: req.user.grupo_id }
     );
     if (!pR.recordset.length) return res.status(404).json({ error: 'Produto não encontrado.' });
 
@@ -115,7 +115,7 @@ router.post('/entrada', auth, async (req, res) => {
       WHERE id=@pid AND empresa_id=@emp
     `, {
       pid:   parseInt(produto_id),
-      emp:   req.user.empresa_id,
+      emp:   req.user.grupo_id,
       qtd,
       custo: parseFloat(preco_custo) || 0,
     });

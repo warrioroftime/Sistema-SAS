@@ -13,7 +13,7 @@ router.get('/', auth, async (req, res) => {
       WHERE c.empresa_id = @emp
       GROUP BY c.id, c.nome
       ORDER BY c.nome
-    `, { emp: req.user.empresa_id });
+    `, { emp: req.user.grupo_id });
     res.json(r.recordset);
   } catch (err) {
     console.error(err);
@@ -29,13 +29,13 @@ router.post('/', auth, async (req, res) => {
 
     const dup = await query(
       'SELECT id FROM Categorias WHERE empresa_id=@emp AND nome=@nome',
-      { emp: req.user.empresa_id, nome }
+      { emp: req.user.grupo_id, nome }
     );
     if (dup.recordset.length) return res.status(409).json({ error: 'Já existe um grupo com esse nome.' });
 
     const r = await query(
       'INSERT INTO Categorias (empresa_id, nome) VALUES (@emp, @nome) RETURNING id',
-      { emp: req.user.empresa_id, nome }
+      { emp: req.user.grupo_id, nome }
     );
     res.status(201).json({ id: r.recordset[0].id, nome });
   } catch (err) {
@@ -53,19 +53,19 @@ router.put('/:id', auth, async (req, res) => {
 
     const ex = await query(
       'SELECT id FROM Categorias WHERE id=@id AND empresa_id=@emp',
-      { id, emp: req.user.empresa_id }
+      { id, emp: req.user.grupo_id }
     );
     if (!ex.recordset.length) return res.status(404).json({ error: 'Grupo não encontrado.' });
 
     const dup = await query(
       'SELECT id FROM Categorias WHERE empresa_id=@emp AND nome=@nome AND id<>@id',
-      { emp: req.user.empresa_id, nome, id }
+      { emp: req.user.grupo_id, nome, id }
     );
     if (dup.recordset.length) return res.status(409).json({ error: 'Já existe um grupo com esse nome.' });
 
     await query(
       'UPDATE Categorias SET nome=@nome WHERE id=@id AND empresa_id=@emp',
-      { id, emp: req.user.empresa_id, nome }
+      { id, emp: req.user.grupo_id, nome }
     );
     res.json({ ok: true });
   } catch (err) {
@@ -80,17 +80,17 @@ router.delete('/:id', auth, async (req, res) => {
     const id = parseInt(req.params.id);
     const ex = await query(
       'SELECT id FROM Categorias WHERE id=@id AND empresa_id=@emp',
-      { id, emp: req.user.empresa_id }
+      { id, emp: req.user.grupo_id }
     );
     if (!ex.recordset.length) return res.status(404).json({ error: 'Grupo não encontrado.' });
 
     const desvinc = await query(
       'UPDATE Produtos SET categoria_id=NULL WHERE categoria_id=@id AND empresa_id=@emp',
-      { id, emp: req.user.empresa_id }
+      { id, emp: req.user.grupo_id }
     );
     await query(
       'DELETE FROM Categorias WHERE id=@id AND empresa_id=@emp',
-      { id, emp: req.user.empresa_id }
+      { id, emp: req.user.grupo_id }
     );
 
     const afetados = desvinc.rowsAffected ? desvinc.rowsAffected[0] : 0;

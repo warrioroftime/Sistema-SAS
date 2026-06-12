@@ -16,7 +16,7 @@ router.get('/', auth, async (req, res) => {
   try {
     const { busca = '', page = 1, limit = 200 } = req.query;
     let where = `empresa_id = @emp AND ativo = TRUE`;
-    const params = { emp: req.user.empresa_id };
+    const params = { emp: req.user.grupo_id };
 
     if (busca) {
       where += ` AND (nome LIKE @b OR documento LIKE @b OR email LIKE @b)`;
@@ -41,7 +41,7 @@ router.get('/', auth, async (req, res) => {
         `SELECT cliente_id, COUNT(*) AS qtd_compras, SUM(total) AS total_gasto
          FROM Vendas WHERE empresa_id=@emp AND cliente_id IN (${ids.join(',')})
          GROUP BY cliente_id`,
-        { emp: req.user.empresa_id }
+        { emp: req.user.grupo_id }
       );
       stats.recordset.forEach(s => { statsMap[s.cliente_id] = s; });
     }
@@ -68,7 +68,7 @@ router.get('/:id/historico', auth, async (req, res) => {
     // Verificar posse
     const c = await query(
       'SELECT id, nome FROM Clientes WHERE id=@id AND empresa_id=@emp AND ativo=TRUE',
-      { id, emp: req.user.empresa_id }
+      { id, emp: req.user.grupo_id }
     );
     if (!c.recordset.length) return res.status(404).json({ error: 'Cliente não encontrado.' });
 
@@ -82,12 +82,12 @@ router.get('/:id/historico', auth, async (req, res) => {
       LEFT JOIN FormasPagamento fp ON fp.id=v.forma_pagamento_id
       WHERE v.empresa_id=@emp AND v.cliente_id=@cid
       ORDER BY v.criado_em DESC
-    `, { emp: req.user.empresa_id, cid: id });
+    `, { emp: req.user.grupo_id, cid: id });
 
     const stats = await query(`
       SELECT COUNT(*) AS qtd, SUM(total) AS total_gasto, AVG(total) AS ticket_medio
       FROM Vendas WHERE empresa_id=@emp AND cliente_id=@cid
-    `, { emp: req.user.empresa_id, cid: id });
+    `, { emp: req.user.grupo_id, cid: id });
 
     res.json({
       cliente: c.recordset[0],
@@ -105,7 +105,7 @@ router.get('/:id', auth, async (req, res) => {
   try {
     const r = await query(
       BASE + ' AND id=@id',
-      { emp: req.user.empresa_id, id: parseInt(req.params.id) }
+      { emp: req.user.grupo_id, id: parseInt(req.params.id) }
     );
     if (!r.recordset[0]) return res.status(404).json({ error: 'Cliente não encontrado.' });
     res.json(r.recordset[0]);
@@ -121,7 +121,7 @@ router.post('/', auth, async (req, res) => {
             cep, endereco, numero, bairro, cidade, estado } = req.body;
     if (!nome) return res.status(400).json({ error: 'Nome obrigatório.' });
 
-    await checarLimite(req.user.empresa_id, 'clientes');
+    await checarLimite(req.user.grupo_id, 'clientes');
 
     const r = await query(`
       INSERT INTO Clientes
@@ -130,7 +130,7 @@ router.post('/', auth, async (req, res) => {
       VALUES (@emp, @nome, @fantasia, @doc, @tel, @email, @cep, @end, @num, @bairro, @cid, @est)
       RETURNING id
     `, {
-      emp: req.user.empresa_id,
+      emp: req.user.grupo_id,
       nome, fantasia: nome_fantasia||null, doc: documento||null,
       tel: telefone||null, email: email||null,
       cep: cep||null, end: endereco||null, num: numero||null,
@@ -138,7 +138,7 @@ router.post('/', auth, async (req, res) => {
     });
 
     const id = r.recordset[0].id;
-    const novo = await query(BASE + ' AND id=@id', { emp: req.user.empresa_id, id });
+    const novo = await query(BASE + ' AND id=@id', { emp: req.user.grupo_id, id });
     res.status(201).json({ ...novo.recordset[0], qtd_compras: 0, total_gasto: 0 });
   } catch (err) {
     if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
@@ -157,7 +157,7 @@ router.put('/:id', auth, async (req, res) => {
 
     const ex = await query(
       'SELECT id FROM Clientes WHERE id=@id AND empresa_id=@emp',
-      { id, emp: req.user.empresa_id }
+      { id, emp: req.user.grupo_id }
     );
     if (!ex.recordset.length) return res.status(404).json({ error: 'Cliente não encontrado.' });
 
@@ -169,14 +169,14 @@ router.put('/:id', auth, async (req, res) => {
         cidade=@cid, estado=@est, atualizado_em=NOW()
       WHERE id=@id AND empresa_id=@emp
     `, {
-      id, emp: req.user.empresa_id,
+      id, emp: req.user.grupo_id,
       nome, fantasia: nome_fantasia||null, doc: documento||null,
       tel: telefone||null, email: email||null,
       cep: cep||null, end: endereco||null, num: numero||null,
       bairro: bairro||null, cid: cidade||null, est: estado||null,
     });
 
-    const updated = await query(BASE + ' AND id=@id', { emp: req.user.empresa_id, id });
+    const updated = await query(BASE + ' AND id=@id', { emp: req.user.grupo_id, id });
     res.json(updated.recordset[0]);
   } catch (err) {
     console.error(err);
@@ -190,7 +190,7 @@ router.delete('/:id', auth, async (req, res) => {
     const id = parseInt(req.params.id);
     await query(
       'UPDATE Clientes SET ativo=FALSE, atualizado_em=NOW() WHERE id=@id AND empresa_id=@emp',
-      { id, emp: req.user.empresa_id }
+      { id, emp: req.user.grupo_id }
     );
     res.json({ ok: true });
   } catch (err) {
