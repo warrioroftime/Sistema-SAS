@@ -2,6 +2,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
+const path    = require('path');
 const { getPool } = require('./db');
 
 const app = express();
@@ -37,6 +38,10 @@ app.use('/api/compras',        require('./routes/compras'));
 app.use('/api/notificacoes',   require('./routes/notificacoes'));
 app.use('/api/comissoes',      require('./routes/comissoes'));
 app.use('/api/saas',           require('./routes/saas'));
+
+// ── Frontend estático ───────────────────────────────────────────
+app.use(express.static(path.join(__dirname, '../../frontend')));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../../frontend/index.html')));
 
 // ── Handler de erros ────────────────────────────────────────────
 app.use((err, req, res, _next) => {
