@@ -34,12 +34,19 @@ async function resumoCaixa(caixaId, emp) {
 
   const vnd = await query(
     `SELECT
-       COALESCE(SUM(CASE WHEN fp.nome='dinheiro' THEN v.total END),0) AS vendas_dinheiro,
+       (
+         -- dinheiro vindo das formas de pagamento (vendas com split registrado)
+         COALESCE((SELECT SUM(vp.valor) FROM VendaPagamentos vp JOIN Vendas v2 ON v2.id=vp.venda_id
+                   WHERE v2.caixa_id=@id AND v2.status='ativa' AND vp.forma='dinheiro'),0)
+         -- vendas antigas sem split: usa a forma única
+       + COALESCE((SELECT SUM(v3.total) FROM Vendas v3 LEFT JOIN FormasPagamento fp3 ON fp3.id=v3.forma_pagamento_id
+                   WHERE v3.caixa_id=@id AND v3.status='ativa' AND fp3.nome='dinheiro'
+                     AND NOT EXISTS (SELECT 1 FROM VendaPagamentos vpx WHERE vpx.venda_id=v3.id)),0)
+       ) AS vendas_dinheiro,
        COALESCE(SUM(v.total),0) AS vendas_total,
        COUNT(*) AS qtd_vendas
      FROM Vendas v
-     LEFT JOIN FormasPagamento fp ON fp.id = v.forma_pagamento_id
-     WHERE v.caixa_id=@id`,
+     WHERE v.caixa_id=@id AND v.status='ativa'`,
     { id: caixaId }
   );
 
@@ -50,7 +57,7 @@ async function resumoCaixa(caixaId, emp) {
             COALESCE(SUM(v.total),0) AS total
      FROM Vendas v
      LEFT JOIN FormasPagamento fp ON fp.id = v.forma_pagamento_id
-     WHERE v.caixa_id=@id
+     WHERE v.caixa_id=@id AND v.status='ativa'
      GROUP BY fp.nome
      ORDER BY total DESC`,
     { id: caixaId }

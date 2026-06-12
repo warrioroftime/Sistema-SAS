@@ -32,6 +32,9 @@ app.use('/api/admin',          require('./routes/admin'));
 app.use('/api/cnpj',           require('./routes/cnpj'));
 app.use('/api/grupos',         require('./routes/grupos'));
 app.use('/api/caixa',          require('./routes/caixa'));
+app.use('/api/fornecedores',   require('./routes/fornecedores'));
+app.use('/api/compras',        require('./routes/compras'));
+app.use('/api/notificacoes',   require('./routes/notificacoes'));
 app.use('/api/saas',           require('./routes/saas'));
 
 // ── Handler de erros ────────────────────────────────────────────

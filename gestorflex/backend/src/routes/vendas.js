@@ -19,11 +19,12 @@ router.get('/', auth, async (req, res) => {
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     const r = await query(`
-      SELECT v.id, v.criado_em, v.subtotal, v.desconto, v.total, v.observacao,
+      SELECT v.id, v.criado_em, v.subtotal, v.desconto, v.total, v.observacao, v.status,
              fp.nome AS pagamento,
              c.id   AS cliente_id,
              c.nome AS cliente_nome,
-             (SELECT COUNT(*) FROM ItensVenda WHERE venda_id = v.id) AS qtd_itens
+             (SELECT COUNT(*) FROM ItensVenda WHERE venda_id = v.id) AS qtd_itens,
+             (SELECT COUNT(*) FROM Devolucoes WHERE venda_id = v.id) AS qtd_devolucoes
       FROM Vendas v
       LEFT JOIN Clientes          c  ON c.id  = v.cliente_id
       LEFT JOIN FormasPagamento   fp ON fp.id = v.forma_pagamento_id
@@ -52,7 +53,7 @@ router.get('/:id', auth, async (req, res) => {
     const id = parseInt(req.params.id);
 
     const venda = await query(`
-      SELECT v.id, v.criado_em, v.subtotal, v.desconto, v.total, v.observacao,
+      SELECT v.id, v.criado_em, v.subtotal, v.desconto, v.total, v.observacao, v.status,
              fp.nome AS pagamento,
              c.id AS cliente_id, c.nome AS cliente_nome, c.documento AS cliente_doc
       FROM Vendas v
@@ -63,15 +64,25 @@ router.get('/:id', auth, async (req, res) => {
 
     if (!venda.recordset[0]) return res.status(404).json({ error: 'Venda não encontrada.' });
 
+    // Itens com quantidade já devolvida (para validar devolução parcial)
     const itens = await query(`
       SELECT iv.id, iv.quantidade, iv.preco_unit, iv.subtotal,
-             p.id AS produto_id, p.codigo, p.descricao
+             p.id AS produto_id, p.codigo, p.descricao,
+             COALESCE((SELECT SUM(idv.quantidade) FROM ItensDevolucao idv
+                       JOIN Devolucoes d ON d.id=idv.devolucao_id
+                       WHERE d.venda_id=@id AND idv.produto_id=p.id),0) AS qtd_devolvida
       FROM ItensVenda iv
       JOIN Produtos p ON p.id = iv.produto_id
       WHERE iv.venda_id = @id
     `, { id });
 
-    res.json({ ...venda.recordset[0], itens: itens.recordset });
+    const devolucoes = await query(`
+      SELECT d.id, d.tipo, d.valor, d.motivo, d.criado_em, u.nome AS usuario
+      FROM Devolucoes d LEFT JOIN Usuarios u ON u.id=d.usuario_id
+      WHERE d.venda_id=@id ORDER BY d.criado_em DESC
+    `, { id });
+
+    res.json({ ...venda.recordset[0], itens: itens.recordset, devolucoes: devolucoes.recordset });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar venda.' });
@@ -159,6 +170,19 @@ router.post('/', auth, async (req, res) => {
     const desc  = parseFloat(desconto) || 0;
     const total = Math.max(subtotal - desc, 0);
 
+    // Formas de pagamento da venda (1 ou várias). Default: pagamento único pelo total.
+    let pagamentosList = Array.isArray(req.body.pagamentos) && req.body.pagamentos.length
+      ? req.body.pagamentos.map(p => ({ forma: p.forma, valor: +(parseFloat(p.valor) || 0).toFixed(2) })).filter(p => p.forma && p.valor > 0)
+      : [{ forma: pagamento, valor: total }];
+    if (!pagamentosList.length) pagamentosList = [{ forma: pagamento, valor: total }];
+    if (pagamentosList.length > 1) {
+      const soma = +pagamentosList.reduce((s, p) => s + p.valor, 0).toFixed(2);
+      if (Math.abs(soma - total) > 0.05) {
+        await transaction.rollback();
+        return res.status(400).json({ error: `A soma das formas de pagamento (R$ ${soma.toFixed(2)}) difere do total da venda (R$ ${total.toFixed(2)}).` });
+      }
+    }
+
     // Inserir venda
     const vReq = new sql.Request(transaction);
     vReq.input('emp',  req.user.empresa_id);
@@ -206,6 +230,17 @@ router.post('/', auth, async (req, res) => {
       }
     }
 
+    // Registrar formas de pagamento (sempre, mesmo pagamento único)
+    const fpMapR = await new sql.Request(transaction).query('SELECT id, nome FROM FormasPagamento');
+    const fpMap = {}; fpMapR.recordset.forEach(f => { fpMap[f.nome] = f.id; });
+    for (const pg of pagamentosList) {
+      const pgReq = new sql.Request(transaction);
+      pgReq.input('emp', req.user.empresa_id); pgReq.input('vid', vendaId);
+      pgReq.input('fpid', fpMap[pg.forma] || null); pgReq.input('forma', pg.forma); pgReq.input('valor', pg.valor);
+      await pgReq.query(`INSERT INTO VendaPagamentos (empresa_id,venda_id,forma_pagamento_id,forma,valor)
+                         VALUES (@emp,@vid,@fpid,@forma,@valor)`);
+    }
+
     await transaction.commit();
 
     // Gerar parcelas no ContasReceber se for fiado
@@ -250,6 +285,141 @@ router.post('/', auth, async (req, res) => {
     try { await transaction.rollback(); } catch {}
     console.error(err);
     res.status(500).json({ error: 'Erro ao registrar venda.' });
+  }
+});
+
+// Devolve estoque de um item (dentro de uma transação) + registra movimentação
+async function devolverEstoque(transaction, emp, uid, produtoId, qtd, origem) {
+  const ceReq = new sql.Request(transaction);
+  ceReq.input('pid', produtoId); ceReq.input('emp', emp);
+  const ceR = await ceReq.query(`SELECT estoque, controla_estoque FROM Produtos WHERE id=@pid AND empresa_id=@emp`);
+  if (!ceR.recordset[0] || !ceR.recordset[0].controla_estoque) return;
+  const saldoAnt = ceR.recordset[0].estoque;
+  const saldoAtual = saldoAnt + qtd;
+  const up = new sql.Request(transaction);
+  up.input('pid', produtoId); up.input('emp', emp); up.input('qty', qtd);
+  await up.query(`UPDATE Produtos SET estoque=estoque+@qty, atualizado_em=GETDATE() WHERE id=@pid AND empresa_id=@emp`);
+  const mv = new sql.Request(transaction);
+  mv.input('emp', emp); mv.input('pid', produtoId); mv.input('qty', qtd);
+  mv.input('sant', saldoAnt); mv.input('sat', saldoAtual); mv.input('orig', origem); mv.input('uid', uid);
+  await mv.query(`INSERT INTO MovimentacoesEstoque (empresa_id,produto_id,tipo,quantidade,saldo_anterior,saldo_atual,origem,usuario_id)
+                  VALUES (@emp,@pid,'entrada',@qty,@sant,@sat,@orig,@uid)`);
+}
+
+// POST /api/vendas/:id/cancelar — cancela a venda inteira (devolve todo o estoque)
+router.post('/:id/cancelar', auth, async (req, res) => {
+  const id = parseInt(req.params.id);
+  const emp = req.user.empresa_id;
+  const pool = await getPool();
+  const transaction = new sql.Transaction(pool);
+  try {
+    const vR = await query(`SELECT id, total, status FROM Vendas WHERE id=@id AND empresa_id=@emp`, { id, emp });
+    const venda = vR.recordset[0];
+    if (!venda) return res.status(404).json({ error: 'Venda não encontrada.' });
+    if (venda.status === 'cancelada') return res.status(400).json({ error: 'Venda já está cancelada.' });
+
+    const itensR = await query(`SELECT produto_id, quantidade, preco_unit, subtotal FROM ItensVenda WHERE venda_id=@id`, { id });
+
+    await transaction.begin();
+    for (const it of itensR.recordset) {
+      await devolverEstoque(transaction, emp, req.user.id, it.produto_id, it.quantidade, `Cancelamento Venda #${id}`);
+    }
+    // marca cancelada
+    const upV = new sql.Request(transaction);
+    upV.input('id', id);
+    await upV.query(`UPDATE Vendas SET status='cancelada' WHERE id=@id`);
+    // cancela parcelas em aberto (fiado)
+    const upC = new sql.Request(transaction);
+    upC.input('id', id);
+    await upC.query(`UPDATE ContasReceber SET status='cancelado' WHERE venda_id=@id AND status IN ('pendente','parcial')`);
+    // registra devolução total
+    const dReq = new sql.Request(transaction);
+    dReq.input('emp', emp); dReq.input('vid', id); dReq.input('val', venda.total);
+    dReq.input('mot', (req.body.motivo || 'Cancelamento da venda')); dReq.input('uid', req.user.id);
+    const dR = await dReq.query(`INSERT INTO Devolucoes (empresa_id,venda_id,tipo,valor,motivo,usuario_id)
+                                 OUTPUT INSERTED.id VALUES (@emp,@vid,'total',@val,@mot,@uid)`);
+    const devId = dR.recordset[0].id;
+    for (const it of itensR.recordset) {
+      const idv = new sql.Request(transaction);
+      idv.input('did', devId); idv.input('pid', it.produto_id); idv.input('qty', it.quantidade);
+      idv.input('pu', it.preco_unit); idv.input('sub', it.subtotal);
+      await idv.query(`INSERT INTO ItensDevolucao (devolucao_id,produto_id,quantidade,preco_unit,subtotal)
+                       VALUES (@did,@pid,@qty,@pu,@sub)`);
+    }
+    await transaction.commit();
+    res.json({ ok: true, valor_devolvido: venda.total });
+  } catch (err) {
+    try { await transaction.rollback(); } catch {}
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao cancelar venda.' });
+  }
+});
+
+// POST /api/vendas/:id/devolver — devolução parcial de itens
+// body: { itens: [{ produto_id, quantidade }], motivo }
+router.post('/:id/devolver', auth, async (req, res) => {
+  const id = parseInt(req.params.id);
+  const emp = req.user.empresa_id;
+  const { itens = [], motivo = '' } = req.body;
+  if (!itens.length) return res.status(400).json({ error: 'Selecione ao menos um item para devolver.' });
+
+  const pool = await getPool();
+  const transaction = new sql.Transaction(pool);
+  try {
+    const vR = await query(`SELECT id, status FROM Vendas WHERE id=@id AND empresa_id=@emp`, { id, emp });
+    const venda = vR.recordset[0];
+    if (!venda) return res.status(404).json({ error: 'Venda não encontrada.' });
+    if (venda.status === 'cancelada') return res.status(400).json({ error: 'Venda cancelada não pode ter devolução.' });
+
+    // Itens vendidos + já devolvidos
+    const vendidosR = await query(`
+      SELECT iv.produto_id, iv.quantidade, iv.preco_unit,
+             COALESCE((SELECT SUM(idv.quantidade) FROM ItensDevolucao idv
+                       JOIN Devolucoes d ON d.id=idv.devolucao_id
+                       WHERE d.venda_id=@id AND idv.produto_id=iv.produto_id),0) AS qtd_devolvida
+      FROM ItensVenda iv WHERE iv.venda_id=@id
+    `, { id });
+    const mapa = {};
+    vendidosR.recordset.forEach(r => { mapa[r.produto_id] = r; });
+
+    // Valida e monta itens a devolver
+    const aDevolver = [];
+    for (const it of itens) {
+      const base = mapa[it.produto_id];
+      const qtd = parseInt(it.quantidade) || 0;
+      if (!base || qtd <= 0) continue;
+      const disp = base.quantidade - base.qtd_devolvida;
+      if (qtd > disp) {
+        return res.status(400).json({ error: `Quantidade a devolver excede o disponível (produto ${it.produto_id}: máx ${disp}).` });
+      }
+      aDevolver.push({ produto_id: it.produto_id, quantidade: qtd, preco_unit: base.preco_unit, subtotal: +(qtd * base.preco_unit).toFixed(2) });
+    }
+    if (!aDevolver.length) return res.status(400).json({ error: 'Nenhuma quantidade válida para devolver.' });
+    const valorTotal = +aDevolver.reduce((s, i) => s + i.subtotal, 0).toFixed(2);
+
+    await transaction.begin();
+    for (const it of aDevolver) {
+      await devolverEstoque(transaction, emp, req.user.id, it.produto_id, it.quantidade, `Devolução Venda #${id}`);
+    }
+    const dReq = new sql.Request(transaction);
+    dReq.input('emp', emp); dReq.input('vid', id); dReq.input('val', valorTotal);
+    dReq.input('mot', motivo || null); dReq.input('uid', req.user.id);
+    const dR = await dReq.query(`INSERT INTO Devolucoes (empresa_id,venda_id,tipo,valor,motivo,usuario_id)
+                                 OUTPUT INSERTED.id VALUES (@emp,@vid,'parcial',@val,@mot,@uid)`);
+    const devId = dR.recordset[0].id;
+    for (const it of aDevolver) {
+      const idv = new sql.Request(transaction);
+      idv.input('did', devId); idv.input('pid', it.produto_id); idv.input('qty', it.quantidade);
+      idv.input('pu', it.preco_unit); idv.input('sub', it.subtotal);
+      await idv.query(`INSERT INTO ItensDevolucao (devolucao_id,produto_id,quantidade,preco_unit,subtotal)
+                       VALUES (@did,@pid,@qty,@pu,@sub)`);
+    }
+    await transaction.commit();
+    res.json({ ok: true, valor_devolvido: valorTotal });
+  } catch (err) {
+    try { await transaction.rollback(); } catch {}
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao registrar devolução.' });
   }
 });
 
