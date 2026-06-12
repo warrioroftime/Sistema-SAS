@@ -38,6 +38,7 @@ app.use('/api/compras',        require('./routes/compras'));
 app.use('/api/notificacoes',   require('./routes/notificacoes'));
 app.use('/api/comissoes',      require('./routes/comissoes'));
 app.use('/api/saas',           require('./routes/saas'));
+app.use('/api/wizard',         require('./routes/wizard'));
 
 // ── Frontend estático ───────────────────────────────────────────
 app.use(express.static(path.join(__dirname, '../../frontend')));

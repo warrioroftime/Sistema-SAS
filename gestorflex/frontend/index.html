@@ -349,6 +349,14 @@ table.data tbody tr:hover td{background:rgba(234,88,12,.04)}
 
 /* ── MISC ── */
 .empty-state{text-align:center;padding:48px 20px;color:var(--text3);font-size:13px}
+
+/* ── WIZARD DE IMPORTAÇÃO ── */
+.wiz-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.wiz-tab{display:flex;align-items:center;gap:8px;padding:8px 18px;background:var(--card);border:2px solid var(--border);border-radius:8px;cursor:pointer;font-weight:600;color:var(--text2);transition:all .15s;font-size:14px}
+.wiz-tab:hover{border-color:var(--primary);color:var(--primary)}
+.wiz-tab.active{border-color:var(--primary);color:var(--primary);background:rgba(99,102,241,.08)}
+.wiz-dropzone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:40px 20px;border:2px dashed var(--border);border-radius:12px;cursor:pointer;color:var(--text2);transition:border-color .15s;text-align:center}
+.wiz-dropzone:hover{border-color:var(--primary);color:var(--primary)}
 .divider{border:none;border-top:1px solid var(--border);margin:14px 0}
 .fw-600{font-weight:600}.fw-700{font-weight:700}
 .fs-12{font-size:12px}.fs-13{font-size:13px}
@@ -787,6 +795,9 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
       </a>
       <a class="nav-item" data-perm="fornecedores" href="javascript:void(0)" onclick="navigate('fornecedores')">
         <i class="fa-solid fa-truck-field"></i> Fornecedores
+      </a>
+      <a class="nav-item" data-perm="wizard" href="javascript:void(0)" onclick="navigate('wizard')">
+        <i class="fa-solid fa-file-import"></i> Importação
       </a>
     </div>
     <div class="nav-section">
@@ -2203,6 +2214,70 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
       </div>
     </div>
 
+    <!-- IMPORTAÇÃO EM MASSA (WIZARD) -->
+    <div id="page-wizard" class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title"><i class="fa-solid fa-file-import"></i> Importação em Massa</div>
+          <div class="page-sub">Importe Grupos, Produtos, Clientes, Fornecedores ou Contas a Receber via planilha CSV ou Excel</div>
+        </div>
+      </div>
+
+      <!-- Abas por tipo -->
+      <div class="wiz-tabs">
+        <button class="wiz-tab active" onclick="wizardAba('grupos',this)">
+          <i class="fa-solid fa-tags"></i> Grupos
+        </button>
+        <button class="wiz-tab" onclick="wizardAba('produtos',this)">
+          <i class="fa-solid fa-box"></i> Produtos
+        </button>
+        <button class="wiz-tab" onclick="wizardAba('clientes',this)">
+          <i class="fa-solid fa-users"></i> Clientes
+        </button>
+        <button class="wiz-tab" onclick="wizardAba('fornecedores',this)">
+          <i class="fa-solid fa-truck"></i> Fornecedores
+        </button>
+        <button class="wiz-tab" onclick="wizardAba('contas-receber',this)">
+          <i class="fa-solid fa-file-invoice-dollar"></i> Contas a Receber
+        </button>
+      </div>
+
+      <!-- Instruções + download de template -->
+      <div class="card" style="padding:16px;margin-bottom:16px">
+        <div id="wiz-instrucoes"></div>
+        <button class="btn btn-secondary" style="margin-top:12px" onclick="wizardBaixarTemplate()">
+          <i class="fa-solid fa-download"></i> Baixar Planilha de Exemplo (CSV)
+        </button>
+      </div>
+
+      <!-- Dropzone de upload -->
+      <label class="wiz-dropzone" for="wiz-file">
+        <i class="fa-solid fa-cloud-arrow-up" style="font-size:2rem"></i>
+        <span>Clique ou arraste o arquivo CSV / Excel aqui</span>
+        <input type="file" id="wiz-file" accept=".csv,.xlsx,.xls" style="display:none"
+               onchange="wizardCarregarArquivo(this)">
+      </label>
+
+      <!-- Preview da tabela -->
+      <div id="wiz-preview-area" style="display:none;margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+          <span id="wiz-preview-info" style="color:var(--text2)"></span>
+          <button class="btn btn-primary" id="wiz-btn-importar" onclick="wizardImportar()">
+            <i class="fa-solid fa-file-import"></i> Importar
+          </button>
+        </div>
+        <div class="table-wrapper"><table class="data-table" id="wiz-preview-table"></table></div>
+      </div>
+
+      <!-- Resultado após importação -->
+      <div id="wiz-resultado-area" style="display:none;margin-top:16px">
+        <div class="card" id="wiz-resultado" style="padding:24px"></div>
+        <button class="btn btn-secondary" style="margin-top:12px" onclick="wizardLimparArquivo()">
+          <i class="fa-solid fa-rotate-left"></i> Importar outro arquivo
+        </button>
+      </div>
+    </div>
+
   </div><!-- /content -->
 </div><!-- /main -->
 
@@ -3325,7 +3400,7 @@ function applyUser(user) {
 // ── PERMISSÕES ────────────────────────────────────────────────────
 const PERMS_DEFAULTS = {
   admin:    null,
-  gerente:  ['dashboard','pdv','caixa','vendas','historico','produtos','grupos','clientes','fornecedores','estoque','compras','movimentacoes','contas-receber','contas-pagar','despesas','comissoes','relatorios','recibo'],
+  gerente:  ['dashboard','pdv','caixa','vendas','historico','produtos','grupos','clientes','fornecedores','estoque','compras','movimentacoes','contas-receber','contas-pagar','despesas','comissoes','relatorios','recibo','wizard'],
   operador: ['dashboard','pdv','caixa','vendas','historico','clientes'],
 };
 
@@ -3381,6 +3456,7 @@ const pageNames = {
   compras:'Compras / Entrada', movimentacoes:'Movimentações', 'contas-receber':'Contas a Receber', 'contas-pagar':'Contas a Pagar', despesas:'Lançamento de Despesas', comissoes:'Comissões', relatorios:'Relatórios',
   recibo:'Personalizar Recibo',
   empresas:'Empresas', 'minha-empresa':'Minha Empresa', 'adm-usuarios':'Usuários',
+  wizard:'Importação em Massa',
 };
 const pageLoaders = {
   dashboard: loadDashboard, pdv: loadPDV, caixa: loadCaixa, historico: loadHistorico, produtos: loadProdutos,
@@ -3389,6 +3465,7 @@ const pageLoaders = {
   empresas: () => { loadEmpresas(); },
   'minha-empresa': loadMinhaEmpresa,
   'adm-usuarios': () => { loadEmpresasSelect(); loadAdmUsuarios(); },
+  wizard: () => wizardAba(_wizTipo, document.querySelector('.wiz-tab.active')),
 };
 
 function toggleSidebar() {
@@ -3918,6 +3995,142 @@ async function mempBuscarCNPJ() {
     btn.disabled = false;
     btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> Buscar CNPJ';
   }
+}
+
+// ── WIZARD DE IMPORTAÇÃO ─────────────────────────────────────────
+const WIZ_CONFIG = {
+  grupos: {
+    descricao: 'Colunas: <b>nome</b> (obrigatório)',
+    template:  'nome\nEletrônicos\nRoupas\nAlimentos',
+  },
+  produtos: {
+    descricao: 'Colunas: <b>descricao</b> (obrigatório), <b>preco_venda</b> (obrigatório), codigo, codigo_barras, categoria_nome, preco_custo, estoque, estoque_min, status',
+    template:  'descricao,preco_venda,codigo,categoria_nome,preco_custo,estoque,estoque_min,status\nProduto A,10.50,001,Eletrônicos,5.00,100,5,ativo\nProduto B,25.00,002,,12.00,50,3,ativo',
+  },
+  clientes: {
+    descricao: 'Colunas: <b>nome</b> (obrigatório), documento, telefone, email, endereco, numero, bairro, cidade, estado',
+    template:  'nome,documento,telefone,email,endereco,numero,bairro,cidade,estado\nJoão Silva,123.456.789-00,(11)99999-9999,joao@email.com,Rua das Flores,10,Centro,São Paulo,SP',
+  },
+  fornecedores: {
+    descricao: 'Colunas: <b>nome</b> (obrigatório), documento, telefone, email, endereco, cidade, estado, observacao',
+    template:  'nome,documento,telefone,email,endereco,cidade,estado,observacao\nFornecedor X,12.345.678/0001-99,(11)3333-4444,contato@fx.com,Av. Principal 500,São Paulo,SP,',
+  },
+  'contas-receber': {
+    descricao: 'Colunas: <b>valor</b> (obrigatório), data_vencimento (DD/MM/AAAA), numero_documento, observacao, cliente_nome',
+    template:  'valor,data_vencimento,numero_documento,observacao,cliente_nome\n500.00,31/12/2026,NF-001,Serviço prestado,João Silva\n200.00,15/01/2027,NF-002,,',
+  },
+};
+
+let _wizTipo = 'grupos';
+let _wizDados = [];
+
+function wizardAba(tipo, btn) {
+  _wizTipo = tipo;
+  _wizDados = [];
+  document.querySelectorAll('.wiz-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const cfg = WIZ_CONFIG[tipo];
+  qs('#wiz-instrucoes').innerHTML =
+    `<p style="margin:0">${cfg.descricao}</p>
+     <p style="margin:4px 0 0;color:var(--text3);font-size:.85em">Campos opcionais podem ser omitidos ou deixados em branco na planilha.</p>`;
+  qs('#wiz-file').value = '';
+  qs('#wiz-preview-area').style.display = 'none';
+  qs('#wiz-resultado-area').style.display = 'none';
+}
+
+function wizardBaixarTemplate() {
+  const cfg = WIZ_CONFIG[_wizTipo];
+  const blob = new Blob(['﻿' + cfg.template], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `modelo_${_wizTipo}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function wizardCarregarArquivo(input) {
+  const file = input.files[0];
+  if (!file) return;
+  qs('#wiz-preview-area').style.display = 'none';
+  qs('#wiz-resultado-area').style.display = 'none';
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb   = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      if (!rows.length) { toast('Arquivo vazio ou sem dados.', 'error'); return; }
+      _wizDados = rows;
+      wizardMostrarPreview(rows);
+    } catch (err) { toast('Erro ao ler arquivo: ' + err.message, 'error'); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function wizardMostrarPreview(rows) {
+  const MAX  = 50;
+  const cols = Object.keys(rows[0]);
+  let html   = '<thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
+  rows.slice(0, MAX).forEach(r => {
+    html += '<tr>' + cols.map(c => `<td>${r[c] ?? ''}</td>`).join('') + '</tr>';
+  });
+  html += '</tbody>';
+  qs('#wiz-preview-table').innerHTML = html;
+  qs('#wiz-preview-info').textContent =
+    `${rows.length} registro${rows.length !== 1 ? 's' : ''} encontrado${rows.length !== 1 ? 's' : ''}` +
+    (rows.length > MAX ? ` (exibindo primeiros ${MAX})` : '');
+  qs('#wiz-btn-importar').innerHTML =
+    `<i class="fa-solid fa-file-import"></i> Importar ${rows.length} registro${rows.length !== 1 ? 's' : ''}`;
+  qs('#wiz-preview-area').style.display = '';
+}
+
+async function wizardImportar() {
+  if (!_wizDados.length) return;
+  const btn = qs('#wiz-btn-importar');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Importando...';
+  try {
+    const res = await api.post(`/wizard/${_wizTipo}`, { dados: _wizDados });
+    wizardMostrarResultado(res);
+  } catch (err) {
+    toast('Erro na importação: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-file-import"></i> Importar';
+  }
+}
+
+function wizardMostrarResultado(res) {
+  const nErros = res.erros?.length ?? 0;
+  let html = `
+    <h3 style="margin:0 0 16px">Resultado da Importação</h3>
+    <div style="display:flex;gap:32px;flex-wrap:wrap;margin-bottom:20px">
+      <div style="text-align:center">
+        <div style="font-size:2rem;font-weight:700;color:var(--green)">${res.importados}</div>
+        <div style="color:var(--text2);font-size:.9em">Importados</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:2rem;font-weight:700;color:${nErros ? 'var(--red)' : 'var(--text3)'}">${nErros}</div>
+        <div style="color:var(--text2);font-size:.9em">Erros</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:2rem;font-weight:700;color:var(--text1)">${res.total}</div>
+        <div style="color:var(--text2);font-size:.9em">Total</div>
+      </div>
+    </div>`;
+  if (nErros) {
+    html += '<h4 style="margin:0 0 8px">Linhas com erro:</h4><div class="table-wrapper"><table class="data-table"><thead><tr><th>Linha</th><th>Erro</th></tr></thead><tbody>';
+    res.erros.forEach(e => { html += `<tr><td>${e.linha}</td><td style="color:var(--red)">${e.erro}</td></tr>`; });
+    html += '</tbody></table></div>';
+  }
+  qs('#wiz-resultado').innerHTML = html;
+  qs('#wiz-preview-area').style.display = 'none';
+  qs('#wiz-resultado-area').style.display = '';
+}
+
+function wizardLimparArquivo() {
+  _wizDados = [];
+  qs('#wiz-file').value = '';
+  qs('#wiz-preview-area').style.display = 'none';
+  qs('#wiz-resultado-area').style.display = 'none';
 }
 
 async function excluirCliente(id, nome) {
