@@ -3008,10 +3008,17 @@ code.tag{font-size:11px;background:var(--blue-glass);color:var(--blue);padding:2
     <div class="modal-body">
       <input type="hidden" id="memp-id">
       <div class="form-group"><label class="form-label">Razão Social *</label><input class="form-input" id="memp-razao" placeholder="Nome da empresa"></div>
-      <div class="form-row cols-2">
-        <div class="form-group"><label class="form-label">CNPJ</label><input class="form-input" id="memp-cnpj" placeholder="00.000.000/0001-00"></div>
-        <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" id="memp-tel" placeholder="(00) 0000-0000"></div>
+      <div class="form-group">
+        <label class="form-label">CNPJ</label>
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          <input class="form-input" id="memp-cnpj" placeholder="00.000.000/0001-00" oninput="mempCnpjInput(this)" style="flex:1">
+          <button type="button" class="btn btn-secondary" id="memp-cnpj-btn" onclick="mempBuscarCNPJ()" style="display:none;white-space:nowrap;height:38px">
+            <i class="fa-solid fa-magnifying-glass"></i> Buscar CNPJ
+          </button>
+        </div>
+        <div class="form-hint" id="memp-cnpj-status"></div>
       </div>
+      <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" id="memp-tel" placeholder="(00) 0000-0000"></div>
       <div class="form-group"><label class="form-label">E-mail</label><input class="form-input" id="memp-email" type="email" placeholder="contato@empresa.com"></div>
 
       <div class="nav-label" style="padding-left:0;margin-top:6px">Configurações do SaaS</div>
@@ -3870,6 +3877,38 @@ async function mcBuscarCNPJ() {
     qs('#mc-bairro').value   = d.bairro || '';
     qs('#mc-cidade').value   = d.cidade || '';
     qs('#mc-estado').value   = d.estado || '';
+    status.style.color = 'var(--green)';
+    status.textContent = '✓ Dados preenchidos automaticamente. Confira e ajuste se necessário.';
+  } catch (err) {
+    status.style.color = 'var(--red)';
+    status.textContent = '✗ ' + (err.message || 'CNPJ não encontrado.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> Buscar CNPJ';
+  }
+}
+
+function mempCnpjInput(el) {
+  const digits = el.value.replace(/\D/g, '');
+  const btn = qs('#memp-cnpj-btn');
+  btn.style.display = digits.length === 14 ? 'inline-flex' : 'none';
+  if (digits.length === 14) qs('#memp-cnpj-status').textContent = 'CNPJ detectado — clique em Buscar para preencher os dados.';
+  else qs('#memp-cnpj-status').textContent = '';
+}
+
+async function mempBuscarCNPJ() {
+  const cnpj = qsV('#memp-cnpj').replace(/\D/g, '');
+  const status = qs('#memp-cnpj-status');
+  const btn = qs('#memp-cnpj-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Buscando...';
+  status.style.color = 'var(--text3)';
+  status.textContent = 'Consultando Receita Federal...';
+  try {
+    const d = await api.get('/cnpj/' + cnpj);
+    qs('#memp-razao').value = d.razao_social || '';
+    qs('#memp-tel').value   = d.telefone || '';
+    qs('#memp-email').value = d.email || '';
     status.style.color = 'var(--green)';
     status.textContent = '✓ Dados preenchidos automaticamente. Confira e ajuste se necessário.';
   } catch (err) {
