@@ -13,7 +13,7 @@ router.post('/login', async (req, res) => {
 
     const result = await query(`
       SELECT u.id, u.empresa_id, u.nome, u.email, u.senha_hash, u.perfil, u.ativo, u.foto, u.tema, u.permissoes,
-             e.razao_social AS empresa_nome
+             e.razao_social AS empresa_nome, e.logo AS empresa_logo
       FROM Usuarios u
       JOIN Empresas e ON e.id = u.empresa_id
       WHERE u.email = @email AND e.ativo = 1
@@ -43,7 +43,7 @@ router.post('/login', async (req, res) => {
     // foto, tema e permissoes fora do JWT (mudam sem re-login)
     let permissoes = null;
     try { permissoes = user.permissoes ? JSON.parse(user.permissoes) : null; } catch {}
-    res.json({ token, user: { ...payload, foto: user.foto || null, tema: user.tema || 'light', permissoes } });
+    res.json({ token, user: { ...payload, foto: user.foto || null, tema: user.tema || 'light', permissoes, empresa_logo: user.empresa_logo || null } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Erro interno.' });

@@ -122,6 +122,60 @@ router.patch('/empresas/:id/toggle', matrizOnly, async (req, res) => {
   }
 });
 
+// ── MINHA EMPRESA (qualquer admin vê/edita só a própria) ──────────
+
+// GET /api/admin/minha-empresa
+router.get('/minha-empresa', async (req, res) => {
+  try {
+    const emp = req.user.empresa_id;
+    const r = await query(`
+      SELECT e.id, e.razao_social, e.cnpj, e.email, e.telefone, e.ativo, e.criado_em,
+             e.plano, e.data_contratacao, e.data_vencimento, e.status, e.logo,
+             e.limite_usuarios, e.limite_produtos, e.limite_clientes,
+             e.limite_armazenamento, e.trial_expira_em,
+             (SELECT COUNT(*) FROM Usuarios WHERE empresa_id=e.id) AS qtd_usuarios,
+             (SELECT COUNT(*) FROM Produtos WHERE empresa_id=e.id) AS qtd_produtos,
+             (SELECT COUNT(*) FROM Clientes WHERE empresa_id=e.id) AS qtd_clientes
+      FROM Empresas e WHERE e.id=@emp
+    `, { emp });
+    if (!r.recordset[0]) return res.status(404).json({ error: 'Empresa não encontrada.' });
+    res.json(r.recordset[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao carregar empresa.' });
+  }
+});
+
+// PUT /api/admin/minha-empresa — atualiza só dados de contato (não plano/limites/status)
+router.put('/minha-empresa', async (req, res) => {
+  try {
+    const b = req.body;
+    if (!b.razao_social || !String(b.razao_social).trim()) {
+      return res.status(400).json({ error: 'Razão social obrigatória.' });
+    }
+    // Logo: atualiza só quando o campo é enviado (string = nova; '' = remover; ausente = mantém)
+    const logoSet = b.logo !== undefined ? 1 : 0;
+    const logo = b.logo || null;
+    if (logo) await checarArmazenamento(req.user.empresa_id, logo);
+
+    await query(`
+      UPDATE Empresas
+      SET razao_social=@razao_social, cnpj=@cnpj, email=@email, telefone=@telefone,
+          logo = CASE WHEN @logoSet=1 THEN @logo ELSE logo END
+      WHERE id=@id
+    `, {
+      razao_social: String(b.razao_social).trim(), cnpj: b.cnpj || null,
+      email: b.email || null, telefone: b.telefone || null,
+      logoSet, logo, id: req.user.empresa_id,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao atualizar empresa.' });
+  }
+});
+
 // ── USUÁRIOS ──────────────────────────────────────────────────────
 
 // GET /api/admin/usuarios?empresa_id=
