@@ -20,7 +20,7 @@ router.get('/dashboard', auth, async (req, res) => {
     const kpis = await query(`
       SELECT COUNT(*) AS qtd_vendas, COALESCE(SUM(total),0) AS faturamento,
              COALESCE(AVG(total),0) AS ticket_medio, COALESCE(SUM(desconto),0) AS total_descontos
-      FROM Vendas WHERE empresa_id=@emp AND criado_em >= DATEADD(DAY,-@dias,GETDATE())
+      FROM Vendas WHERE empresa_id=@emp AND status='ativa' AND criado_em >= DATEADD(DAY,-@dias,GETDATE())
     `, { emp, dias });
 
     const estoque = await query(`
@@ -362,6 +362,81 @@ const RELATORIOS = {
         grafico: {
           tipo: 'bar', label: 'Faturamento por mês',
           labels: rows.map(r => r.mes_label), valores: rows.map(r => r.total),
+        },
+      };
+    },
+  },
+
+  // ── VENDAS POR ESTADO (UF) ─────────────────────────────────────
+  'vendas-uf': {
+    titulo: 'Vendas por Estado',
+    descricao: 'Faturamento por UF do cliente (distribuição geográfica).',
+    usaPeriodo: true,
+    async run(emp, de, ate) {
+      const rows = (await query(`
+        SELECT COALESCE(NULLIF(c.estado,''),'—') AS uf,
+               COUNT(v.id) AS qtd_vendas, SUM(v.total) AS total
+        FROM Vendas v LEFT JOIN Clientes c ON c.id=v.cliente_id
+        WHERE v.empresa_id=@emp AND v.criado_em BETWEEN @de AND @ate
+        GROUP BY c.estado ORDER BY total DESC
+      `, { emp, de, ate })).recordset;
+      const fat = rows.reduce((s, r) => s + Number(r.total || 0), 0);
+      return {
+        kpis: [
+          { label: 'Faturamento', valor: fat, tipo: 'moeda', cor: 'green' },
+          { label: 'Estados', valor: rows.length, tipo: 'num' },
+        ],
+        colunas: [
+          { key: 'uf', label: 'UF', tipo: 'texto' },
+          { key: 'qtd_vendas', label: 'Qtd. Vendas', tipo: 'num' },
+          { key: 'total', label: 'Faturamento', tipo: 'moeda' },
+        ],
+        linhas: rows,
+        grafico: {
+          tipo: 'doughnut', label: 'Faturamento por UF',
+          labels: rows.map(r => r.uf), valores: rows.map(r => r.total),
+        },
+      };
+    },
+  },
+
+  // ── DESCONTOS CONCEDIDOS (por operador) ────────────────────────
+  descontos: {
+    titulo: 'Descontos Concedidos',
+    descricao: 'Total de descontos dados nas vendas, por operador.',
+    usaPeriodo: true,
+    async run(emp, de, ate) {
+      const rows = (await query(`
+        SELECT COALESCE(u.nome,'—') AS operador,
+               COUNT(CASE WHEN v.desconto > 0 THEN 1 END) AS vendas_com_desconto,
+               SUM(v.desconto) AS total_desconto,
+               SUM(v.total) AS faturamento
+        FROM Vendas v LEFT JOIN Usuarios u ON u.id=v.usuario_id
+        WHERE v.empresa_id=@emp AND v.criado_em BETWEEN @de AND @ate
+        GROUP BY u.nome ORDER BY total_desconto DESC
+      `, { emp, de, ate })).recordset;
+      rows.forEach(r => {
+        const bruto = Number(r.faturamento) + Number(r.total_desconto);
+        r.perc = bruto > 0 ? (Number(r.total_desconto) / bruto) * 100 : 0;
+      });
+      const totDesc = rows.reduce((s, r) => s + Number(r.total_desconto || 0), 0);
+      const totVcd  = rows.reduce((s, r) => s + Number(r.vendas_com_desconto || 0), 0);
+      return {
+        kpis: [
+          { label: 'Total de Descontos', valor: totDesc, tipo: 'moeda', cor: 'red' },
+          { label: 'Vendas com Desconto', valor: totVcd, tipo: 'num' },
+        ],
+        colunas: [
+          { key: 'operador', label: 'Operador', tipo: 'texto' },
+          { key: 'vendas_com_desconto', label: 'Vendas c/ Desc.', tipo: 'num' },
+          { key: 'total_desconto', label: 'Total Desconto', tipo: 'moeda' },
+          { key: 'perc', label: '% s/ Bruto', tipo: 'pct' },
+        ],
+        linhas: rows,
+        grafico: {
+          tipo: 'barh', label: 'Desconto concedido',
+          labels: rows.slice(0, 10).map(r => r.operador),
+          valores: rows.slice(0, 10).map(r => r.total_desconto),
         },
       };
     },
@@ -863,6 +938,50 @@ const RELATORIOS = {
     },
   },
 
+  // ── AGING DE CONTAS A PAGAR (por faixa de vencimento) ──────────
+  'aging-pagar': {
+    titulo: 'Aging de Contas a Pagar',
+    descricao: 'Saldo a pagar agrupado por faixa de dias em atraso.',
+    usaPeriodo: false,
+    async run(emp) {
+      const rows = (await query(`
+        SELECT faixa, COUNT(*) AS titulos, SUM(saldo) AS saldo FROM (
+          SELECT (cp.valor - COALESCE(cp.valor_pago,0)) AS saldo,
+            CASE
+              WHEN cp.data_vencimento IS NULL OR DATEDIFF(DAY, cp.data_vencimento, GETDATE()) <= 0 THEN 'A vencer'
+              WHEN DATEDIFF(DAY, cp.data_vencimento, GETDATE()) <= 30 THEN '1 a 30 dias'
+              WHEN DATEDIFF(DAY, cp.data_vencimento, GETDATE()) <= 60 THEN '31 a 60 dias'
+              WHEN DATEDIFF(DAY, cp.data_vencimento, GETDATE()) <= 90 THEN '61 a 90 dias'
+              ELSE 'Mais de 90 dias'
+            END AS faixa
+          FROM ContasPagar cp
+          WHERE cp.empresa_id=@emp AND cp.status IN ('pendente','parcial')
+        ) t GROUP BY faixa
+      `, { emp })).recordset;
+      const ORD = ['A vencer', '1 a 30 dias', '31 a 60 dias', '61 a 90 dias', 'Mais de 90 dias'];
+      rows.sort((a, b) => ORD.indexOf(a.faixa) - ORD.indexOf(b.faixa));
+      const total   = rows.reduce((s, r) => s + Number(r.saldo || 0), 0);
+      const vencido = rows.filter(r => r.faixa !== 'A vencer').reduce((s, r) => s + Number(r.saldo || 0), 0);
+      return {
+        kpis: [
+          { label: 'Total a Pagar', valor: total, tipo: 'moeda', cor: 'red' },
+          { label: 'Vencido', valor: vencido, tipo: 'moeda', cor: 'red' },
+          { label: '% Vencido', valor: total > 0 ? (vencido / total) * 100 : 0, tipo: 'pct' },
+        ],
+        colunas: [
+          { key: 'faixa', label: 'Faixa de Atraso', tipo: 'texto' },
+          { key: 'titulos', label: 'Títulos', tipo: 'num' },
+          { key: 'saldo', label: 'Saldo', tipo: 'moeda' },
+        ],
+        linhas: rows,
+        grafico: {
+          tipo: 'doughnut', label: 'Saldo por faixa',
+          labels: rows.map(r => r.faixa), valores: rows.map(r => r.saldo),
+        },
+      };
+    },
+  },
+
   // ── RECEBIMENTOS REALIZADOS (baixas de contas a receber) ───────
   recebimentos: {
     titulo: 'Recebimentos Realizados',
@@ -1040,6 +1159,39 @@ const RELATORIOS = {
         ],
         linhas: rows,
         grafico: null,
+      };
+    },
+  },
+
+  // ── CLIENTES POR CIDADE ────────────────────────────────────────
+  'clientes-cidade': {
+    titulo: 'Clientes por Cidade',
+    descricao: 'Distribuição geográfica da base de clientes ativos.',
+    usaPeriodo: false,
+    async run(emp) {
+      const rows = (await query(`
+        SELECT COALESCE(NULLIF(cidade,''),'—') AS cidade,
+               COALESCE(NULLIF(estado,''),'') AS uf, COUNT(*) AS clientes
+        FROM Clientes WHERE empresa_id=@emp AND ativo=1
+        GROUP BY cidade, estado ORDER BY clientes DESC
+      `, { emp })).recordset;
+      const total = rows.reduce((s, r) => s + Number(r.clientes || 0), 0);
+      return {
+        kpis: [
+          { label: 'Clientes Ativos', valor: total, tipo: 'num' },
+          { label: 'Cidades', valor: rows.length, tipo: 'num' },
+        ],
+        colunas: [
+          { key: 'cidade', label: 'Cidade', tipo: 'texto' },
+          { key: 'uf', label: 'UF', tipo: 'texto' },
+          { key: 'clientes', label: 'Clientes', tipo: 'num' },
+        ],
+        linhas: rows,
+        grafico: {
+          tipo: 'doughnut', label: 'Clientes por cidade',
+          labels: rows.slice(0, 12).map(r => r.cidade),
+          valores: rows.slice(0, 12).map(r => r.clientes),
+        },
       };
     },
   },
@@ -1235,6 +1387,72 @@ const RELATORIOS = {
           { item: '(=) Resultado Líquido', valor: resultado },
         ],
         grafico: null,
+      };
+    },
+  },
+
+  // ── RESULTADO MENSAL (DRE por mês) ─────────────────────────────
+  'resultado-mensal': {
+    titulo: 'Resultado Mensal',
+    descricao: 'Receita, custo, despesas e resultado líquido mês a mês.',
+    usaPeriodo: true,
+    async run(emp, de, ate) {
+      const rec = (await query(`
+        SELECT FORMAT(criado_em,'yyyy-MM') AS mes, SUM(total) AS receita
+        FROM Vendas WHERE empresa_id=@emp AND criado_em BETWEEN @de AND @ate
+        GROUP BY FORMAT(criado_em,'yyyy-MM')
+      `, { emp, de, ate })).recordset;
+
+      const cmv = (await query(`
+        SELECT FORMAT(v.criado_em,'yyyy-MM') AS mes, SUM(iv.quantidade * p.preco_custo) AS cmv
+        FROM ItensVenda iv JOIN Produtos p ON p.id=iv.produto_id
+        JOIN Vendas v ON v.id=iv.venda_id
+        WHERE v.empresa_id=@emp AND v.criado_em BETWEEN @de AND @ate
+        GROUP BY FORMAT(v.criado_em,'yyyy-MM')
+      `, { emp, de, ate })).recordset;
+
+      const desp = (await query(`
+        SELECT FORMAT(data_pagamento,'yyyy-MM') AS mes, SUM(valor_pago) AS despesas
+        FROM PagamentosContasPagar
+        WHERE empresa_id=@emp AND estornado=0 AND data_pagamento BETWEEN @de AND @ate
+        GROUP BY FORMAT(data_pagamento,'yyyy-MM')
+      `, { emp, de, ate })).recordset;
+
+      // Mescla as três séries por mês
+      const mapa = {};
+      const get = m => (mapa[m] || (mapa[m] = { mes: m, receita: 0, cmv: 0, despesas: 0 }));
+      rec.forEach(r => { get(r.mes).receita = Number(r.receita || 0); });
+      cmv.forEach(r => { get(r.mes).cmv = Number(r.cmv || 0); });
+      desp.forEach(r => { get(r.mes).despesas = Number(r.despesas || 0); });
+
+      const rows = Object.values(mapa).sort((a, b) => a.mes.localeCompare(b.mes));
+      rows.forEach(r => {
+        const [y, m] = r.mes.split('-'); r.mes_label = `${m}/${y}`;
+        r.lucro_bruto = r.receita - r.cmv;
+        r.resultado = r.lucro_bruto - r.despesas;
+      });
+      const receita   = rows.reduce((s, r) => s + r.receita, 0);
+      const resultado = rows.reduce((s, r) => s + r.resultado, 0);
+      const melhor = rows.reduce((a, r) => r.resultado > (a ? a.resultado : -Infinity) ? r : a, null);
+      return {
+        kpis: [
+          { label: 'Receita', valor: receita, tipo: 'moeda', cor: 'green' },
+          { label: 'Resultado', valor: resultado, tipo: 'moeda', cor: resultado >= 0 ? 'green' : 'red' },
+          { label: 'Melhor Mês', valor: melhor ? melhor.mes_label : '—', tipo: 'texto' },
+        ],
+        colunas: [
+          { key: 'mes_label', label: 'Mês', tipo: 'texto' },
+          { key: 'receita', label: 'Receita', tipo: 'moeda' },
+          { key: 'cmv', label: 'CMV', tipo: 'moeda' },
+          { key: 'lucro_bruto', label: 'Lucro Bruto', tipo: 'moeda' },
+          { key: 'despesas', label: 'Despesas', tipo: 'moeda' },
+          { key: 'resultado', label: 'Resultado', tipo: 'moeda' },
+        ],
+        linhas: rows,
+        grafico: {
+          tipo: 'line', label: 'Resultado por mês',
+          labels: rows.map(r => r.mes_label), valores: rows.map(r => r.resultado),
+        },
       };
     },
   },
