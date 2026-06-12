@@ -6,7 +6,7 @@ const { auth } = require('../middleware/auth');
 // Caixa aberto do usuário (para lançar recebimentos em dinheiro no turno)
 async function caixaAbertoId(emp, uid) {
   const r = await query(
-    `SELECT TOP 1 id FROM Caixa WHERE empresa_id=@emp AND usuario_id=@uid AND status='aberto' ORDER BY id DESC`,
+    `SELECT id FROM Caixa WHERE empresa_id=@emp AND usuario_id=@uid AND status='aberto' ORDER BY id DESC LIMIT 1`,
     { emp, uid }
   );
   return r.recordset[0] ? r.recordset[0].id : null;
@@ -24,12 +24,12 @@ async function recalcStatus(contaId, emp, uid) {
            COALESCE(ag.acrescimo,0) AS acrescimo,
            ag.ult AS ult
     FROM ContasReceber cr
-    OUTER APPLY (
+    LEFT JOIN LATERAL (
       SELECT SUM(valor_principal) AS principal, SUM(valor_recebido) AS total,
              SUM(juros) AS juros, SUM(multa) AS multa, SUM(desconto) AS desconto,
              SUM(acrescimo) AS acrescimo, MAX(data_recebimento) AS ult
-      FROM RecebimentosContas WHERE conta_id=cr.id AND estornado=0
-    ) ag
+      FROM RecebimentosContas WHERE conta_id=cr.id AND estornado=FALSE
+    ) ag ON TRUE
     WHERE cr.id=@id AND cr.empresa_id=@emp`,
     { id: contaId, emp }
   );
@@ -45,7 +45,7 @@ async function recalcStatus(contaId, emp, uid) {
   await query(`
     UPDATE ContasReceber
     SET status=@st, juros=@j, multa=@m, desconto=@d, acrescimo=@a,
-        valor_recebido=@vr, data_recebimento=@ult, alterado_por=@uid, alterado_em=GETDATE()
+        valor_recebido=@vr, data_recebimento=@ult, alterado_por=@uid, alterado_em=NOW()
     WHERE id=@id AND empresa_id=@emp`,
     { st: status, j: c.juros, m: c.multa, d: c.desconto, a: c.acrescimo,
       vr: c.total, ult: status === 'pendente' ? null : c.ult, uid, id: contaId, emp }
@@ -73,7 +73,7 @@ router.get('/', auth, async (req, res) => {
     // Filtro de status (inclui o "vencido" calculado)
     let where = baseWhere;
     if (status === 'vencido') {
-      where += ` AND cr.status IN ('pendente','parcial') AND cr.data_vencimento < CAST(GETDATE() AS DATE)`;
+      where += ` AND cr.status IN ('pendente','parcial') AND cr.data_vencimento < CURRENT_DATE`;
     } else if (status) {
       where += ` AND cr.status=@st`; params.st = status;
     }
@@ -93,19 +93,19 @@ router.get('/', auth, async (req, res) => {
              COALESCE(ag.principal,0) AS principal_recebido,
              COALESCE(ag.total,0)     AS total_recebido_real,
              (cr.valor - COALESCE(ag.principal,0)) AS valor_aberto,
-             CASE WHEN cr.status IN ('pendente','parcial') AND cr.data_vencimento < CAST(GETDATE() AS DATE)
-                  THEN DATEDIFF(DAY, cr.data_vencimento, GETDATE()) ELSE 0 END AS dias_atraso
+             CASE WHEN cr.status IN ('pendente','parcial') AND cr.data_vencimento < CURRENT_DATE
+                  THEN (CURRENT_DATE - cr.data_vencimento::date) ELSE 0 END AS dias_atraso
       FROM ContasReceber cr
       LEFT JOIN Clientes c ON c.id = cr.cliente_id
-      OUTER APPLY (
+      LEFT JOIN LATERAL (
         SELECT SUM(valor_principal) AS principal, SUM(valor_recebido) AS total
-        FROM RecebimentosContas WHERE conta_id=cr.id AND estornado=0
-      ) ag
+        FROM RecebimentosContas WHERE conta_id=cr.id AND estornado=FALSE
+      ) ag ON TRUE
       WHERE ${where}
       ORDER BY
         CASE WHEN cr.status IN ('pendente','parcial') THEN 0 ELSE 1 END,
         cr.data_vencimento ASC, cr.id DESC
-      OFFSET ${offset} ROWS FETCH NEXT ${parseInt(limit)} ROWS ONLY
+      LIMIT ${parseInt(limit)} OFFSET ${offset}
     `, params);
 
     // Cards: aplica filtros base (menos status) p/ refletir o universo todo
@@ -113,17 +113,17 @@ router.get('/', auth, async (req, res) => {
       SELECT
         COALESCE(SUM(CASE WHEN cr.status IN ('pendente','parcial') THEN cr.valor - COALESCE(ag.principal,0) ELSE 0 END),0) AS total_aberto,
         COALESCE(SUM(COALESCE(ag.total,0)),0) AS total_recebido,
-        COALESCE(SUM(CASE WHEN cr.status IN ('pendente','parcial') AND cr.data_vencimento < CAST(GETDATE() AS DATE)
+        COALESCE(SUM(CASE WHEN cr.status IN ('pendente','parcial') AND cr.data_vencimento < CURRENT_DATE
                           THEN cr.valor - COALESCE(ag.principal,0) ELSE 0 END),0) AS total_vencido,
         SUM(CASE WHEN cr.status IN ('pendente','parcial') THEN 1 ELSE 0 END) AS qtd_aberto,
         SUM(CASE WHEN cr.status='recebido' THEN 1 ELSE 0 END) AS qtd_recebido,
-        SUM(CASE WHEN cr.status IN ('pendente','parcial') AND cr.data_vencimento < CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS qtd_vencido
+        SUM(CASE WHEN cr.status IN ('pendente','parcial') AND cr.data_vencimento < CURRENT_DATE THEN 1 ELSE 0 END) AS qtd_vencido
       FROM ContasReceber cr
       LEFT JOIN Clientes c ON c.id = cr.cliente_id
-      OUTER APPLY (
+      LEFT JOIN LATERAL (
         SELECT SUM(valor_principal) AS principal, SUM(valor_recebido) AS total
-        FROM RecebimentosContas WHERE conta_id=cr.id AND estornado=0
-      ) ag
+        FROM RecebimentosContas WHERE conta_id=cr.id AND estornado=FALSE
+      ) ag ON TRUE
       WHERE ${baseWhere}
     `, params);
 
@@ -177,8 +177,8 @@ router.post('/', auth, async (req, res) => {
         INSERT INTO ContasReceber
           (empresa_id, cliente_id, numero_documento, parcela_num, parcelas_total,
            valor, data_emissao, data_vencimento, status, lancamento_manual, observacao, criado_por)
-        OUTPUT INSERTED.id
-        VALUES (@emp, @cid, @ndoc, @pn, @pt, @val, @emi, @dvenc, 'pendente', 1, @obs, @uid)`,
+        VALUES (@emp, @cid, @ndoc, @pn, @pt, @val, @emi, @dvenc, 'pendente', 1, @obs, @uid)
+        RETURNING id`,
         { emp, cid: clienteId, ndoc: numDoc, pn: i + 1, pt: parcelas, val: valor,
           emi: emissao, dvenc: venc, obs, uid });
       ids.push(r.recordset[0].id);
@@ -198,7 +198,7 @@ router.get('/:id', auth, async (req, res) => {
     const emp = req.user.empresa_id;
     const cab = await query(`
       SELECT cr.*, c.nome AS cliente_nome, c.documento AS cliente_doc, c.telefone AS cliente_tel,
-             (cr.valor - COALESCE((SELECT SUM(valor_principal) FROM RecebimentosContas WHERE conta_id=cr.id AND estornado=0),0)) AS valor_aberto
+             (cr.valor - COALESCE((SELECT SUM(valor_principal) FROM RecebimentosContas WHERE conta_id=cr.id AND estornado=FALSE),0)) AS valor_aberto
       FROM ContasReceber cr
       LEFT JOIN Clientes c ON c.id = cr.cliente_id
       WHERE cr.id=@id AND cr.empresa_id=@emp`, { id, emp });
@@ -233,7 +233,7 @@ router.post('/:id/receber', auth, async (req, res) => {
 
     const rec = await query(`
       SELECT cr.valor, cr.status,
-             COALESCE((SELECT SUM(valor_principal) FROM RecebimentosContas WHERE conta_id=cr.id AND estornado=0),0) AS principal
+             COALESCE((SELECT SUM(valor_principal) FROM RecebimentosContas WHERE conta_id=cr.id AND estornado=FALSE),0) AS principal
       FROM ContasReceber cr WHERE cr.id=@id AND cr.empresa_id=@emp`, { id, emp });
     if (!rec.recordset[0]) return res.status(404).json({ error: 'Título não encontrado.' });
     const conta = rec.recordset[0];
@@ -292,7 +292,7 @@ router.post('/receber-lote', auth, async (req, res) => {
     for (const id of ids) {
       const rec = await query(`
         SELECT cr.valor, cr.status,
-               COALESCE((SELECT SUM(valor_principal) FROM RecebimentosContas WHERE conta_id=cr.id AND estornado=0),0) AS principal
+               COALESCE((SELECT SUM(valor_principal) FROM RecebimentosContas WHERE conta_id=cr.id AND estornado=FALSE),0) AS principal
         FROM ContasReceber cr WHERE cr.id=@id AND cr.empresa_id=@emp`, { id, emp });
       const conta = rec.recordset[0];
       if (!conta || ['recebido', 'cancelado', 'renegociado'].includes(conta.status)) continue;
@@ -331,7 +331,7 @@ router.post('/recebimentos/:recId/estornar', auth, async (req, res) => {
 
     await query(`
       UPDATE RecebimentosContas
-      SET estornado=1, estornado_por=@uid, estornado_em=GETDATE()
+      SET estornado=TRUE, estornado_por=@uid, estornado_em=NOW()
       WHERE id=@id AND empresa_id=@emp`, { id: recId, uid, emp });
 
     const status = await recalcStatus(r.recordset[0].conta_id, emp, uid);
@@ -348,7 +348,7 @@ router.put('/:id/cancelar', auth, async (req, res) => {
     const id  = parseInt(req.params.id);
     const emp = req.user.empresa_id;
     await query(
-      `UPDATE ContasReceber SET status='cancelado', alterado_por=@uid, alterado_em=GETDATE()
+      `UPDATE ContasReceber SET status='cancelado', alterado_por=@uid, alterado_em=NOW()
        WHERE id=@id AND empresa_id=@emp AND status<>'recebido'`,
       { id, emp, uid: req.user.id });
     res.json({ ok: true });

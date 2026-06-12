@@ -33,10 +33,7 @@ router.get('/empresas', matrizOnly, async (req, res) => {
              COUNT(u.id) AS qtd_usuarios
       FROM Empresas e
       LEFT JOIN Usuarios u ON u.empresa_id = e.id
-      GROUP BY e.id, e.razao_social, e.cnpj, e.email, e.telefone, e.ativo, e.criado_em,
-               e.plano, e.data_contratacao, e.data_vencimento, e.status,
-               e.limite_usuarios, e.limite_produtos, e.limite_clientes,
-               e.limite_armazenamento, e.trial_expira_em
+      GROUP BY e.id
       ORDER BY e.id DESC
     `);
     res.json(r.recordset);
@@ -58,13 +55,13 @@ router.post('/empresas', matrizOnly, async (req, res) => {
         (razao_social, cnpj, email, telefone, plano, data_contratacao, data_vencimento,
          status, ativo, limite_usuarios, limite_produtos, limite_clientes,
          limite_armazenamento, trial_expira_em)
-      OUTPUT INSERTED.id
       VALUES (@razao_social, @cnpj, @email, @telefone, @plano, @dc, @dv,
               @status, @ativo, @lu, @lp, @lc, @larm, @trial)
+      RETURNING id
     `, {
       razao_social: b.razao_social, cnpj: b.cnpj||null, email: b.email||null, telefone: b.telefone||null,
       plano: (b.plano||'Gratuito'), dc: dateOrNull(b.data_contratacao), dv: dateOrNull(b.data_vencimento),
-      status, ativo: status === 'ativa' ? 1 : 0,
+      status, ativo: status === 'ativa',
       lu: numOrNull(b.limite_usuarios), lp: numOrNull(b.limite_produtos), lc: numOrNull(b.limite_clientes),
       larm: numOrNull(b.limite_armazenamento), trial: dateOrNull(b.trial_expira_em),
     });
@@ -93,7 +90,7 @@ router.put('/empresas/:id', matrizOnly, async (req, res) => {
     `, {
       razao_social: b.razao_social, cnpj: b.cnpj||null, email: b.email||null, telefone: b.telefone||null,
       plano: (b.plano||'Gratuito'), dc: dateOrNull(b.data_contratacao), dv: dateOrNull(b.data_vencimento),
-      status, ativo: status === 'ativa' ? 1 : 0,
+      status, ativo: status === 'ativa',
       lu: numOrNull(b.limite_usuarios), lp: numOrNull(b.limite_produtos), lc: numOrNull(b.limite_clientes),
       larm: numOrNull(b.limite_armazenamento), trial: dateOrNull(b.trial_expira_em),
       id: parseInt(req.params.id),
@@ -111,8 +108,8 @@ router.patch('/empresas/:id/toggle', matrizOnly, async (req, res) => {
   try {
     await query(`
       UPDATE Empresas
-      SET ativo  = CASE WHEN ativo=1 THEN 0 ELSE 1 END,
-          status = CASE WHEN ativo=1 THEN 'suspensa' ELSE 'ativa' END
+      SET ativo  = NOT ativo,
+          status = CASE WHEN ativo THEN 'suspensa' ELSE 'ativa' END
       WHERE id=@id
     `, { id: parseInt(req.params.id) });
     res.json({ ok: true });
@@ -154,14 +151,14 @@ router.put('/minha-empresa', async (req, res) => {
       return res.status(400).json({ error: 'Razão social obrigatória.' });
     }
     // Logo: atualiza só quando o campo é enviado (string = nova; '' = remover; ausente = mantém)
-    const logoSet = b.logo !== undefined ? 1 : 0;
+    const logoSet = b.logo !== undefined;
     const logo = b.logo || null;
     if (logo) await checarArmazenamento(req.user.empresa_id, logo);
 
     await query(`
       UPDATE Empresas
       SET razao_social=@razao_social, cnpj=@cnpj, email=@email, telefone=@telefone,
-          logo = CASE WHEN @logoSet=1 THEN @logo ELSE logo END
+          logo = CASE WHEN @logoSet THEN @logo ELSE logo END
       WHERE id=@id
     `, {
       razao_social: String(b.razao_social).trim(), cnpj: b.cnpj || null,
@@ -222,8 +219,8 @@ router.post('/usuarios', async (req, res) => {
     const hash = await bcrypt.hash(senha, 10);
     const r = await query(`
       INSERT INTO Usuarios (empresa_id, nome, email, senha_hash, perfil, foto, permissoes, comissao_percentual)
-      OUTPUT INSERTED.id
       VALUES (@empresa_id, @nome, @email, @hash, @perfil, @foto, @permissoes, @comissao)
+      RETURNING id
     `, { empresa_id: empId, nome, email, hash, perfil: perfil||'operador', foto: foto||null, permissoes, comissao });
 
     res.status(201).json({ id: r.recordset[0].id });
@@ -257,10 +254,10 @@ router.put('/usuarios/:id', async (req, res) => {
       UPDATE Usuarios
       SET nome=@nome, email=@email, perfil=@perfil, comissao_percentual=@comissao,
           foto=CASE WHEN @foto IS NOT NULL THEN @foto ELSE foto END,
-          permissoes=CASE WHEN @permsSet=1 THEN @permissoes ELSE permissoes END
+          permissoes=CASE WHEN @permsSet THEN @permissoes ELSE permissoes END
       WHERE id=@id
     `, { nome, email, perfil: perfil||'operador', foto: foto !== undefined ? (foto||null) : null,
-         permsSet: permissoes !== undefined ? 1 : 0, permissoes: permissoes !== undefined ? permissoes : null,
+         permsSet: permissoes !== undefined, permissoes: permissoes !== undefined ? permissoes : null,
          comissao, id: parseInt(req.params.id) });
 
     res.json({ ok: true });
@@ -276,7 +273,7 @@ router.patch('/usuarios/:id/toggle', async (req, res) => {
   try {
     if (!(await donoUsuario(req))) return res.status(403).json({ error: 'Acesso negado a usuário de outra empresa.' });
     await query(`
-      UPDATE Usuarios SET ativo = CASE WHEN ativo=1 THEN 0 ELSE 1 END WHERE id=@id
+      UPDATE Usuarios SET ativo = NOT ativo WHERE id=@id
     `, { id: parseInt(req.params.id) });
     res.json({ ok: true });
   } catch (err) {

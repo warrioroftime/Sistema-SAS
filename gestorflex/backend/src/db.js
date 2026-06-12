@@ -1,71 +1,61 @@
-// src/db.js — Conexão com SQL Server (multiplataforma)
-// Driver escolhido por DB_DRIVER:
-//   - 'msnodesqlv8' (ODBC, Windows)  → padrão no Windows
-//   - 'tedious'     (JS puro)        → padrão em Linux/macOS (e Docker)
-const driver = process.env.DB_DRIVER || (process.platform === 'win32' ? 'msnodesqlv8' : 'tedious');
-const sql = driver === 'msnodesqlv8' ? require('mssql/msnodesqlv8') : require('mssql');
+// src/db.js — Conexão PostgreSQL via pg
+require('dotenv').config();
+const { Pool } = require('pg');
 
-const server   = process.env.DB_SERVER   || (driver === 'tedious' ? 'localhost' : '.\\SQLEXPRESS');
-const database = process.env.DB_NAME     || 'GestorFlex';
-const user     = process.env.DB_USER     !== undefined ? process.env.DB_USER : 'sa';
-const password = process.env.DB_PASSWORD || '';
-const pool     = { max: 10, min: 0, idleTimeoutMillis: 30000 };
+const pool = new Pool({
+  host:     process.env.DB_HOST     || 'localhost',
+  port:     parseInt(process.env.DB_PORT) || 5432,
+  database: process.env.DB_NAME     || 'gestorflex',
+  user:     process.env.DB_USER     || 'postgres',
+  password: process.env.DB_PASSWORD || '',
+  max: 10,
+  idleTimeoutMillis: 30000,
+});
 
-let config;
-if (driver === 'msnodesqlv8') {
-  // Windows / ODBC — usa Trusted_Connection quando não há usuário definido
-  const authPart = user
-    ? `UID=${user};PWD=${password};`
-    : `Trusted_Connection=yes;`;
-  config = {
-    connectionString: `Driver={ODBC Driver 17 for SQL Server};Server=${server};Database=${database};${authPart}`,
-    pool,
-  };
-} else {
-  // tedious (Linux/macOS/Docker) — sem ODBC
-  config = {
-    server,                                   // hostname (ex: localhost). Instância nomeada via DB_INSTANCE
-    port: parseInt(process.env.DB_PORT) || 1433,
-    user, password, database,
-    options: {
-      encrypt: process.env.DB_ENCRYPT === 'true',
-      trustServerCertificate: process.env.DB_TRUST_CERT !== 'false',  // self-signed por padrão
-      instanceName: process.env.DB_INSTANCE || undefined,
-      enableArithAbort: true,
-    },
-    pool,
-  };
-}
-
-let poolPromise = null;
+let connected = false;
 
 async function getPool() {
-  if (!poolPromise) {
-    poolPromise = sql.connect(config);
-    await poolPromise;
-    console.log(`✅ SQL Server conectado (${driver}):`, server, '/', database);
+  if (!connected) {
+    const client = await pool.connect();
+    client.release();
+    connected = true;
+    console.log(`✅ PostgreSQL conectado: ${process.env.DB_HOST || 'localhost'} / ${process.env.DB_NAME || 'gestorflex'}`);
   }
-  return poolPromise;
+  return pool;
 }
 
-// Atalhos para queries parametrizadas
+// Converte @paramName → $1, $2... e coleta valores na ordem
+function convertParams(text, namedParams) {
+  const values = [];
+  const idx = {};
+  const sql = text.replace(/@([a-zA-Z_][a-zA-Z0-9_]*)/g, (_, name) => {
+    if (!(name in idx)) {
+      idx[name] = values.length + 1;
+      values.push(namedParams[name]);
+    }
+    return `$${idx[name]}`;
+  });
+  return { sql, values };
+}
+
+// query(text, { param: value }) — compatível com o padrão anterior
 async function query(text, params = {}) {
-  const p = await getPool();
-  const req = p.request();
-  for (const [key, val] of Object.entries(params)) {
-    req.input(key, val);
-  }
-  return req.query(text);
+  const { sql, values } = convertParams(text, params);
+  const result = await pool.query(sql, values);
+  return { recordset: result.rows, rowsAffected: [result.rowCount] };
 }
 
+// queryTyped(text, [{ name, type, value }]) — ignora type, delega para query()
 async function queryTyped(text, params = []) {
-  // params = [{ name, type, value }]
-  const p = await getPool();
-  const req = p.request();
-  for (const { name, type, value } of params) {
-    req.input(name, type, value);
-  }
-  return req.query(text);
+  const named = {};
+  for (const { name, value } of params) named[name] = value;
+  return query(text, named);
 }
 
-module.exports = { sql, getPool, query, queryTyped };
+// Helper para queries dentro de transações (recebe pg.PoolClient)
+function clientQuery(client, text, params = {}) {
+  const { sql, values } = convertParams(text, params);
+  return client.query(sql, values).then(r => ({ recordset: r.rows, rowsAffected: [r.rowCount] }));
+}
+
+module.exports = { getPool, query, queryTyped, clientQuery, pool };

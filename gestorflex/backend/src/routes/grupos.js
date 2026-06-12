@@ -34,7 +34,7 @@ router.post('/', auth, async (req, res) => {
     if (dup.recordset.length) return res.status(409).json({ error: 'Já existe um grupo com esse nome.' });
 
     const r = await query(
-      'INSERT INTO Categorias (empresa_id, nome) OUTPUT INSERTED.id VALUES (@emp, @nome)',
+      'INSERT INTO Categorias (empresa_id, nome) VALUES (@emp, @nome) RETURNING id',
       { emp: req.user.empresa_id, nome }
     );
     res.status(201).json({ id: r.recordset[0].id, nome });

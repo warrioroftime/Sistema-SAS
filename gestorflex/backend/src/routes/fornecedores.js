@@ -10,7 +10,7 @@ router.get('/', auth, async (req, res) => {
     const busca = req.query.busca || '';
     let where = 'empresa_id=@emp';
     const params = { emp };
-    if (!req.query.incluir_inativos) where += ' AND ativo=1';
+    if (!req.query.incluir_inativos) where += ' AND ativo=TRUE';
     if (busca) { where += ' AND (nome LIKE @b OR documento LIKE @b)'; params.b = `%${busca}%`; }
     const r = await query(`
       SELECT id, nome, documento, telefone, email, endereco, cidade, estado, observacao, ativo, criado_em
@@ -27,8 +27,8 @@ router.post('/', auth, async (req, res) => {
     if (!b.nome || !b.nome.trim()) return res.status(400).json({ error: 'Nome do fornecedor é obrigatório.' });
     const r = await query(`
       INSERT INTO Fornecedores (empresa_id, nome, documento, telefone, email, endereco, cidade, estado, observacao)
-      OUTPUT INSERTED.id
       VALUES (@emp, @nome, @doc, @tel, @email, @end, @cid, @uf, @obs)
+      RETURNING id
     `, {
       emp: req.user.empresa_id, nome: b.nome.trim(), doc: b.documento || null, tel: b.telefone || null,
       email: b.email || null, end: b.endereco || null, cid: b.cidade || null,
@@ -59,7 +59,7 @@ router.put('/:id', auth, async (req, res) => {
 // PATCH /api/fornecedores/:id/toggle
 router.patch('/:id/toggle', auth, async (req, res) => {
   try {
-    await query(`UPDATE Fornecedores SET ativo = CASE WHEN ativo=1 THEN 0 ELSE 1 END WHERE id=@id AND empresa_id=@emp`,
+    await query(`UPDATE Fornecedores SET ativo = NOT ativo WHERE id=@id AND empresa_id=@emp`,
       { id: parseInt(req.params.id), emp: req.user.empresa_id });
     res.json({ ok: true });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao alterar status.' }); }

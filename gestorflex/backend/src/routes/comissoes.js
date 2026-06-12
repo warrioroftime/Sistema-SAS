@@ -61,7 +61,7 @@ router.post('/lancar', auth, async (req, res) => {
     const nome = b.vendedor || 'vendedor';
     await query(`
       INSERT INTO ContasPagar (empresa_id, fornecedor, categoria, descricao, valor, data_emissao, data_vencimento, status, criado_por)
-      VALUES (@emp, @forn, 'Comissão', @desc, @val, GETDATE(), @dv, 'pendente', @uid)
+      VALUES (@emp, @forn, 'Comissão', @desc, @val, NOW(), @dv, 'pendente', @uid)
     `, {
       emp: req.user.empresa_id, forn: `Comissão - ${nome}`,
       desc: b.periodo ? `Comissão (${b.periodo})` : 'Comissão de vendas',

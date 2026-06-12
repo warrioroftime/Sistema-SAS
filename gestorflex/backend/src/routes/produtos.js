@@ -1,6 +1,6 @@
 // src/routes/produtos.js
 const router = require('express').Router();
-const { query, sql } = require('../db');
+const { query } = require('../db');
 const { auth } = require('../middleware/auth');
 const { checarLimite, checarArmazenamento } = require('../lib/limites');
 
@@ -22,7 +22,7 @@ router.get('/', auth, async (req, res) => {
     const params = { emp: req.user.empresa_id };
 
     if (busca) {
-      where += ` AND (p.descricao LIKE @busca OR p.codigo LIKE @busca OR ISNULL(p.codigo_barras,'') LIKE @busca)`;
+      where += ` AND (p.descricao LIKE @busca OR p.codigo LIKE @busca OR COALESCE(p.codigo_barras,'') LIKE @busca)`;
       params.busca = `%${busca}%`;
     }
     if (categoria) { where += ` AND c.nome = @cat`; params.cat = categoria; }
@@ -38,7 +38,7 @@ router.get('/', auth, async (req, res) => {
       LEFT JOIN Categorias c ON c.id = p.categoria_id
       WHERE ${where}
       ORDER BY p.descricao
-      OFFSET ${offset} ROWS FETCH NEXT ${parseInt(limit)} ROWS ONLY
+      LIMIT ${parseInt(limit)} OFFSET ${offset}
     `, params);
 
     const total = await query(
@@ -99,7 +99,7 @@ router.post('/', auth, async (req, res) => {
     if (!codigo) {
       // Código não informado: gera o próximo sequencial (maior código numérico + 1)
       const seq = await query(
-        `SELECT MAX(TRY_CONVERT(INT, codigo)) AS maxcod FROM Produtos WHERE empresa_id=@emp`,
+        `SELECT MAX(CASE WHEN codigo ~ '^[0-9]+$' THEN codigo::INTEGER ELSE NULL END) AS maxcod FROM Produtos WHERE empresa_id=@emp`,
         { emp: req.user.empresa_id }
       );
       codigo = String((seq.recordset[0].maxcod || 0) + 1);
@@ -115,8 +115,8 @@ router.post('/', auth, async (req, res) => {
     const r = await query(`
       INSERT INTO Produtos (empresa_id, codigo, codigo_barras, descricao, categoria_id, preco_custo, preco_venda,
                             estoque, estoque_min, status, controla_estoque, foto)
-      OUTPUT INSERTED.id
       VALUES (@emp, @cod, @barras, @desc, @cat, @custo, @preco, @est, @min, @st, @ce, @foto)
+      RETURNING id
     `, {
       emp:    req.user.empresa_id,
       cod:    codigo,
@@ -128,7 +128,7 @@ router.post('/', auth, async (req, res) => {
       est:    estoque,
       min:    estoque_min,
       st:     status,
-      ce:     controla_estoque !== false ? 1 : 0,
+      ce:     controla_estoque !== false,
       foto:   foto || null,
     });
 
@@ -183,7 +183,7 @@ router.put('/:id', auth, async (req, res) => {
     await query(`
       UPDATE Produtos SET
         codigo           = COALESCE(@cod,    codigo),
-        codigo_barras    = CASE WHEN @barrasSet=1 THEN @barras ELSE codigo_barras END,
+        codigo_barras    = CASE WHEN @barrasSet THEN @barras ELSE codigo_barras END,
         descricao        = COALESCE(@desc,   descricao),
         categoria_id     = COALESCE(@cat,    categoria_id),
         preco_custo      = COALESCE(@custo,  preco_custo),
@@ -192,12 +192,12 @@ router.put('/:id', auth, async (req, res) => {
         status           = COALESCE(@st,     status),
         controla_estoque = COALESCE(@ce,     controla_estoque),
         foto             = CASE WHEN @foto IS NOT NULL THEN @foto ELSE foto END,
-        atualizado_em    = GETDATE()
+        atualizado_em    = NOW()
       WHERE id=@id AND empresa_id=@emp
     `, {
       id, emp: req.user.empresa_id,
       cod:       codigo        ?? null,
-      barrasSet: codigo_barras !== undefined ? 1 : 0,
+      barrasSet: codigo_barras !== undefined,
       barras:    codigo_barras !== undefined ? (codigo_barras ? String(codigo_barras).trim() : null) : null,
       desc:      descricao     ?? null,
       cat:       categoria_id  ?? null,
@@ -205,7 +205,7 @@ router.put('/:id', auth, async (req, res) => {
       preco:     preco_venda   ?? null,
       min:       estoque_min   ?? null,
       st:        status        ?? null,
-      ce:        controla_estoque !== undefined ? (controla_estoque !== false ? 1 : 0) : null,
+      ce:        controla_estoque !== undefined ? (controla_estoque !== false) : null,
       foto:      foto !== undefined ? (foto || null) : null,
     });
 
@@ -224,12 +224,12 @@ router.delete('/:id', auth, async (req, res) => {
     const id = parseInt(req.params.id);
     // Verificar se há itens de venda referenciando
     const ref = await query(
-      'SELECT TOP 1 id FROM ItensVenda WHERE produto_id=@id', { id }
+      'SELECT id FROM ItensVenda WHERE produto_id=@id LIMIT 1', { id }
     );
     if (ref.recordset.length) {
       // Apenas inativar, não excluir fisicamente
       await query(
-        'UPDATE Produtos SET status=\'inativo\', atualizado_em=GETDATE() WHERE id=@id AND empresa_id=@emp',
+        'UPDATE Produtos SET status=\'inativo\', atualizado_em=NOW() WHERE id=@id AND empresa_id=@emp',
         { id, emp: req.user.empresa_id }
       );
       return res.json({ ok: true, aviso: 'Produto possui vendas; foi inativado em vez de excluído.' });

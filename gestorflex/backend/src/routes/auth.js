@@ -16,7 +16,7 @@ router.post('/login', async (req, res) => {
              e.razao_social AS empresa_nome, e.logo AS empresa_logo
       FROM Usuarios u
       JOIN Empresas e ON e.id = u.empresa_id
-      WHERE u.email = @email AND e.ativo = 1
+      WHERE u.email = @email AND e.ativo = TRUE
     `, { email });
 
     const user = result.recordset[0];

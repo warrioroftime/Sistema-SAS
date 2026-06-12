@@ -56,7 +56,7 @@ app.listen(PORT, async () => {
     await getPool(); // abre conexão com o banco na inicialização
     console.log(`🚀 GestorFlex API rodando em http://localhost:${PORT}`);
   } catch (err) {
-    console.error('❌ Falha ao conectar ao SQL Server:', err.message);
+    console.error('❌ Falha ao conectar ao PostgreSQL:', err.message);
     process.exit(1);
   }
 });

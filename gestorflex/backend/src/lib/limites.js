@@ -17,9 +17,9 @@ async function getEmpresa(emp) {
 }
 
 const TIPOS = {
-  usuarios: { col: 'limite_usuarios', sql: 'SELECT COUNT(*) AS n FROM Usuarios  WHERE empresa_id=@id AND ativo=1', label: 'usuários' },
+  usuarios: { col: 'limite_usuarios', sql: 'SELECT COUNT(*) AS n FROM Usuarios  WHERE empresa_id=@id AND ativo=TRUE', label: 'usuários' },
   produtos: { col: 'limite_produtos', sql: 'SELECT COUNT(*) AS n FROM Produtos  WHERE empresa_id=@id',            label: 'produtos' },
-  clientes: { col: 'limite_clientes', sql: 'SELECT COUNT(*) AS n FROM Clientes  WHERE empresa_id=@id AND ativo=1', label: 'clientes' },
+  clientes: { col: 'limite_clientes', sql: 'SELECT COUNT(*) AS n FROM Clientes  WHERE empresa_id=@id AND ativo=TRUE', label: 'clientes' },
 };
 
 // Lança erro 403 se a criação exceder o limite do plano
@@ -51,8 +51,8 @@ async function checarArmazenamento(emp, novaFoto) {
   const limiteBytes = empresa.limite_armazenamento * 1024 * 1024;
   const r = await query(`
     SELECT
-      COALESCE((SELECT SUM(DATALENGTH(foto)) FROM Produtos WHERE empresa_id=@id AND foto IS NOT NULL),0)
-    + COALESCE((SELECT SUM(DATALENGTH(foto)) FROM Usuarios WHERE empresa_id=@id AND foto IS NOT NULL),0) AS usado
+      COALESCE((SELECT SUM(OCTET_LENGTH(foto)) FROM Produtos WHERE empresa_id=@id AND foto IS NOT NULL),0)
+    + COALESCE((SELECT SUM(OCTET_LENGTH(foto)) FROM Usuarios WHERE empresa_id=@id AND foto IS NOT NULL),0) AS usado
   `, { id: emp });
   const usado = Number(r.recordset[0].usado) || 0;
 

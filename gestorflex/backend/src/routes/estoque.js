@@ -71,7 +71,7 @@ router.get('/movimentacoes', auth, async (req, res) => {
       LEFT JOIN Usuarios u ON u.id = m.usuario_id
       WHERE ${where}
       ORDER BY m.criado_em DESC
-      OFFSET ${offset} ROWS FETCH NEXT ${parseInt(limit)} ROWS ONLY
+      LIMIT ${parseInt(limit)} OFFSET ${offset}
     `, params);
 
     const tot = await query(
@@ -111,7 +111,7 @@ router.post('/entrada', auth, async (req, res) => {
       UPDATE Produtos
       SET estoque = estoque + @qtd,
           preco_custo   = CASE WHEN @custo > 0 THEN @custo ELSE preco_custo END,
-          atualizado_em = GETDATE()
+          atualizado_em = NOW()
       WHERE id=@pid AND empresa_id=@emp
     `, {
       pid:   parseInt(produto_id),

@@ -1,6 +1,6 @@
 // src/routes/compras.js — Entrada de mercadoria (compras) com atualização de estoque
 const router = require('express').Router();
-const { query, sql, getPool } = require('../db');
+const { query, getPool, clientQuery } = require('../db');
 const { auth } = require('../middleware/auth');
 
 // GET /api/compras?de=&ate=
@@ -41,18 +41,15 @@ router.get('/:id', auth, async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao buscar compra.' }); }
 });
 
-// POST /api/compras — registra entrada: incrementa estoque + (opcional) gera conta a pagar
-// body: { fornecedor_id, numero_documento, observacao, itens:[{produto_id,quantidade,custo_unit}],
-//         atualizar_custo, gerar_conta_pagar, data_vencimento }
+// POST /api/compras — registra entrada de mercadoria
 router.post('/', auth, async (req, res) => {
   const emp = req.user.empresa_id;
   const b = req.body;
   if (!b.itens || !b.itens.length) return res.status(400).json({ error: 'Adicione ao menos um produto.' });
 
   const pool = await getPool();
-  const transaction = new sql.Transaction(pool);
+  const client = await pool.connect();
   try {
-    // Monta itens com subtotal
     const itens = b.itens
       .map(i => ({ produto_id: parseInt(i.produto_id), quantidade: parseInt(i.quantidade) || 0, custo_unit: parseFloat(i.custo_unit) || 0 }))
       .filter(i => i.produto_id && i.quantidade > 0);
@@ -60,73 +57,75 @@ router.post('/', auth, async (req, res) => {
     itens.forEach(i => { i.subtotal = +(i.quantidade * i.custo_unit).toFixed(2); });
     const total = +itens.reduce((s, i) => s + i.subtotal, 0).toFixed(2);
 
-    await transaction.begin();
+    await client.query('BEGIN');
 
-    // Cria a compra
-    const cReq = new sql.Request(transaction);
-    cReq.input('emp', emp); cReq.input('fid', b.fornecedor_id || null);
-    cReq.input('ndoc', b.numero_documento || null); cReq.input('tot', total);
-    cReq.input('obs', b.observacao || null); cReq.input('gcp', b.gerar_conta_pagar ? 1 : 0);
-    cReq.input('uid', req.user.id);
-    const cR = await cReq.query(`
+    const cR = await clientQuery(client, `
       INSERT INTO Compras (empresa_id, fornecedor_id, numero_documento, total, observacao, gerou_conta_pagar, usuario_id)
-      OUTPUT INSERTED.id VALUES (@emp,@fid,@ndoc,@tot,@obs,@gcp,@uid)
-    `);
+      VALUES (@emp,@fid,@ndoc,@tot,@obs,@gcp,@uid) RETURNING id
+    `, {
+      emp, fid: b.fornecedor_id || null, ndoc: b.numero_documento || null,
+      tot: total, obs: b.observacao || null, gcp: !!b.gerar_conta_pagar, uid: req.user.id
+    });
     const compraId = cR.recordset[0].id;
 
-    // Itens + entrada de estoque + (opcional) atualiza custo do produto
     for (const it of itens) {
-      const ic = new sql.Request(transaction);
-      ic.input('cid', compraId); ic.input('pid', it.produto_id); ic.input('qty', it.quantidade);
-      ic.input('cu', it.custo_unit); ic.input('sub', it.subtotal);
-      await ic.query(`INSERT INTO ItensCompra (compra_id,produto_id,quantidade,custo_unit,subtotal)
-                      VALUES (@cid,@pid,@qty,@cu,@sub)`);
+      await clientQuery(client,
+        `INSERT INTO ItensCompra (compra_id,produto_id,quantidade,custo_unit,subtotal) VALUES (@cid,@pid,@qty,@cu,@sub)`,
+        { cid: compraId, pid: it.produto_id, qty: it.quantidade, cu: it.custo_unit, sub: it.subtotal }
+      );
 
-      const pr = new sql.Request(transaction);
-      pr.input('pid', it.produto_id); pr.input('emp', emp);
-      const pR = await pr.query(`SELECT estoque, controla_estoque FROM Produtos WHERE id=@pid AND empresa_id=@emp`);
-      if (!pR.recordset[0]) { await transaction.rollback(); return res.status(400).json({ error: `Produto ID ${it.produto_id} não encontrado.` }); }
+      const pR = await clientQuery(client,
+        `SELECT estoque, controla_estoque FROM Produtos WHERE id=@pid AND empresa_id=@emp`,
+        { pid: it.produto_id, emp }
+      );
+      if (!pR.recordset[0]) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `Produto ID ${it.produto_id} não encontrado.` });
+      }
       const saldoAnt = pR.recordset[0].estoque;
       const saldoAtual = saldoAnt + it.quantidade;
+      const attCusto = !!(b.atualizar_custo && it.custo_unit > 0);
 
-      const up = new sql.Request(transaction);
-      up.input('pid', it.produto_id); up.input('emp', emp); up.input('qty', it.quantidade);
-      up.input('cu', it.custo_unit); up.input('attCusto', b.atualizar_custo && it.custo_unit > 0 ? 1 : 0);
-      await up.query(`UPDATE Produtos SET estoque=estoque+@qty,
-                        preco_custo = CASE WHEN @attCusto=1 THEN @cu ELSE preco_custo END,
-                        atualizado_em=GETDATE()
-                      WHERE id=@pid AND empresa_id=@emp`);
+      await clientQuery(client, `
+        UPDATE Produtos SET estoque=estoque+@qty,
+          preco_custo = CASE WHEN @attCusto THEN @cu ELSE preco_custo END,
+          atualizado_em=NOW()
+        WHERE id=@pid AND empresa_id=@emp
+      `, { qty: it.quantidade, attCusto, cu: it.custo_unit, pid: it.produto_id, emp });
 
-      const mv = new sql.Request(transaction);
-      mv.input('emp', emp); mv.input('pid', it.produto_id); mv.input('qty', it.quantidade);
-      mv.input('sant', saldoAnt); mv.input('sat', saldoAtual); mv.input('orig', `Compra #${compraId}`); mv.input('uid', req.user.id);
-      await mv.query(`INSERT INTO MovimentacoesEstoque (empresa_id,produto_id,tipo,quantidade,saldo_anterior,saldo_atual,origem,usuario_id)
-                      VALUES (@emp,@pid,'entrada',@qty,@sant,@sat,@orig,@uid)`);
+      await clientQuery(client,
+        `INSERT INTO MovimentacoesEstoque (empresa_id,produto_id,tipo,quantidade,saldo_anterior,saldo_atual,origem,usuario_id)
+         VALUES (@emp,@pid,'entrada',@qty,@sant,@sat,@orig,@uid)`,
+        { emp, pid: it.produto_id, qty: it.quantidade, sant: saldoAnt, sat: saldoAtual,
+          orig: `Compra #${compraId}`, uid: req.user.id }
+      );
     }
 
-    // Gera conta a pagar (opcional)
     if (b.gerar_conta_pagar && total > 0) {
       let fornNome = 'Compra de mercadoria';
       if (b.fornecedor_id) {
-        const fr = new sql.Request(transaction);
-        fr.input('fid', b.fornecedor_id); fr.input('emp', emp);
-        const f = await fr.query(`SELECT nome FROM Fornecedores WHERE id=@fid AND empresa_id=@emp`);
+        const f = await clientQuery(client,
+          `SELECT nome FROM Fornecedores WHERE id=@fid AND empresa_id=@emp`,
+          { fid: b.fornecedor_id, emp }
+        );
         if (f.recordset[0]) fornNome = f.recordset[0].nome;
       }
-      const cp = new sql.Request(transaction);
-      cp.input('emp', emp); cp.input('forn', fornNome); cp.input('desc', `Compra #${compraId}`);
-      cp.input('ndoc', b.numero_documento || null); cp.input('val', total);
-      cp.input('dv', b.data_vencimento ? new Date(b.data_vencimento) : null); cp.input('uid', req.user.id);
-      await cp.query(`INSERT INTO ContasPagar (empresa_id, fornecedor, categoria, descricao, numero_documento, valor, data_emissao, data_vencimento, status, criado_por)
-                      VALUES (@emp,@forn,'Mercadoria',@desc,@ndoc,@val,GETDATE(),@dv,'pendente',@uid)`);
+      await clientQuery(client,
+        `INSERT INTO ContasPagar (empresa_id, fornecedor, categoria, descricao, numero_documento, valor, data_emissao, data_vencimento, status, criado_por)
+         VALUES (@emp,@forn,'Mercadoria',@desc,@ndoc,@val,NOW(),@dv,'pendente',@uid)`,
+        { emp, forn: fornNome, desc: `Compra #${compraId}`, ndoc: b.numero_documento || null,
+          val: total, dv: b.data_vencimento ? new Date(b.data_vencimento) : null, uid: req.user.id }
+      );
     }
 
-    await transaction.commit();
+    await client.query('COMMIT');
     res.status(201).json({ id: compraId, total });
   } catch (err) {
-    try { await transaction.rollback(); } catch {}
+    try { await client.query('ROLLBACK'); } catch {}
     console.error(err);
     res.status(500).json({ error: 'Erro ao registrar compra.' });
+  } finally {
+    client.release();
   }
 });
 

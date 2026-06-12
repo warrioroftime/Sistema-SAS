@@ -8,14 +8,14 @@ const BASE = `
   SELECT id, nome, nome_fantasia, documento, telefone, email,
          cep, endereco, numero, bairro, cidade, estado, ativo, criado_em
   FROM Clientes
-  WHERE empresa_id = @emp AND ativo = 1
+  WHERE empresa_id = @emp AND ativo = TRUE
 `;
 
 // GET /api/clientes?busca=&page=1&limit=100
 router.get('/', auth, async (req, res) => {
   try {
     const { busca = '', page = 1, limit = 200 } = req.query;
-    let where = `empresa_id = @emp AND ativo = 1`;
+    let where = `empresa_id = @emp AND ativo = TRUE`;
     const params = { emp: req.user.empresa_id };
 
     if (busca) {
@@ -29,7 +29,7 @@ router.get('/', auth, async (req, res) => {
               cep, endereco, numero, bairro, cidade, estado, criado_em
        FROM Clientes WHERE ${where}
        ORDER BY nome
-       OFFSET ${offset} ROWS FETCH NEXT ${parseInt(limit)} ROWS ONLY`,
+       LIMIT ${parseInt(limit)} OFFSET ${offset}`,
       params
     );
 
@@ -67,7 +67,7 @@ router.get('/:id/historico', auth, async (req, res) => {
 
     // Verificar posse
     const c = await query(
-      'SELECT id, nome FROM Clientes WHERE id=@id AND empresa_id=@emp AND ativo=1',
+      'SELECT id, nome FROM Clientes WHERE id=@id AND empresa_id=@emp AND ativo=TRUE',
       { id, emp: req.user.empresa_id }
     );
     if (!c.recordset.length) return res.status(404).json({ error: 'Cliente não encontrado.' });
@@ -75,7 +75,7 @@ router.get('/:id/historico', auth, async (req, res) => {
     const vendas = await query(`
       SELECT v.id, v.criado_em, v.total, v.desconto, v.subtotal,
              fp.nome AS pagamento,
-             (SELECT STRING_AGG(p.descricao + ' ('+CAST(iv.quantidade AS VARCHAR)+')', ', ')
+             (SELECT STRING_AGG(p.descricao || ' (' || iv.quantidade::TEXT || ')', ', ')
               FROM ItensVenda iv JOIN Produtos p ON p.id=iv.produto_id
               WHERE iv.venda_id=v.id) AS itens_resumo
       FROM Vendas v
@@ -127,8 +127,8 @@ router.post('/', auth, async (req, res) => {
       INSERT INTO Clientes
         (empresa_id, nome, nome_fantasia, documento, telefone, email,
          cep, endereco, numero, bairro, cidade, estado)
-      OUTPUT INSERTED.id
       VALUES (@emp, @nome, @fantasia, @doc, @tel, @email, @cep, @end, @num, @bairro, @cid, @est)
+      RETURNING id
     `, {
       emp: req.user.empresa_id,
       nome, fantasia: nome_fantasia||null, doc: documento||null,
@@ -166,7 +166,7 @@ router.put('/:id', auth, async (req, res) => {
         nome=@nome, nome_fantasia=@fantasia, documento=@doc,
         telefone=@tel, email=@email,
         cep=@cep, endereco=@end, numero=@num, bairro=@bairro,
-        cidade=@cid, estado=@est, atualizado_em=GETDATE()
+        cidade=@cid, estado=@est, atualizado_em=NOW()
       WHERE id=@id AND empresa_id=@emp
     `, {
       id, emp: req.user.empresa_id,
@@ -189,7 +189,7 @@ router.delete('/:id', auth, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     await query(
-      'UPDATE Clientes SET ativo=0, atualizado_em=GETDATE() WHERE id=@id AND empresa_id=@emp',
+      'UPDATE Clientes SET ativo=FALSE, atualizado_em=NOW() WHERE id=@id AND empresa_id=@emp',
       { id, emp: req.user.empresa_id }
     );
     res.json({ ok: true });

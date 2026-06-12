@@ -30,18 +30,18 @@ router.get('/stats', async (req, res) => {
         SUM(CASE WHEN status='bloqueada' THEN 1 ELSE 0 END)                   AS bloqueadas,
         SUM(CASE WHEN status='cancelada' THEN 1 ELSE 0 END)                   AS canceladas,
         SUM(CASE WHEN trial_expira_em IS NOT NULL
-                  AND trial_expira_em >= CAST(GETDATE() AS DATE)
+                  AND trial_expira_em >= CURRENT_DATE
                   AND status='ativa' THEN 1 ELSE 0 END)                        AS em_trial,
         SUM(CASE WHEN trial_expira_em IS NOT NULL
-                  AND trial_expira_em BETWEEN CAST(GETDATE() AS DATE)
-                  AND DATEADD(DAY, 7, CAST(GETDATE() AS DATE))
+                  AND trial_expira_em BETWEEN CURRENT_DATE
+                  AND CURRENT_DATE + INTERVAL '7 days'
                   AND status='ativa' THEN 1 ELSE 0 END)                        AS trial_expirando_7d,
         SUM(CASE WHEN data_vencimento IS NOT NULL
-                  AND data_vencimento BETWEEN CAST(GETDATE() AS DATE)
-                  AND DATEADD(DAY, 30, CAST(GETDATE() AS DATE))
+                  AND data_vencimento BETWEEN CURRENT_DATE
+                  AND CURRENT_DATE + INTERVAL '30 days'
                   AND status='ativa' THEN 1 ELSE 0 END)                        AS vencendo_30d,
         SUM(CASE WHEN data_vencimento IS NOT NULL
-                  AND data_vencimento < CAST(GETDATE() AS DATE)
+                  AND data_vencimento < CURRENT_DATE
                   AND status='ativa' THEN 1 ELSE 0 END)                        AS vencidas
       FROM Empresas WHERE id <> 1
     `);
@@ -57,10 +57,10 @@ router.get('/stats', async (req, res) => {
     // Alertas: trials expirando em 7 dias
     const alertas_trial = await query(`
       SELECT id, razao_social, trial_expira_em,
-             DATEDIFF(DAY, CAST(GETDATE() AS DATE), trial_expira_em) AS dias_restantes
+             (trial_expira_em::date - CURRENT_DATE) AS dias_restantes
       FROM Empresas
       WHERE id <> 1 AND trial_expira_em IS NOT NULL
-        AND trial_expira_em BETWEEN CAST(GETDATE() AS DATE) AND DATEADD(DAY,7,CAST(GETDATE() AS DATE))
+        AND trial_expira_em BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
         AND status = 'ativa'
       ORDER BY trial_expira_em
     `);
@@ -68,10 +68,10 @@ router.get('/stats', async (req, res) => {
     // Alertas: vencimentos próximos em 30 dias
     const alertas_venc = await query(`
       SELECT id, razao_social, data_vencimento, plano,
-             DATEDIFF(DAY, CAST(GETDATE() AS DATE), data_vencimento) AS dias_restantes
+             (data_vencimento::date - CURRENT_DATE) AS dias_restantes
       FROM Empresas
       WHERE id <> 1 AND data_vencimento IS NOT NULL
-        AND data_vencimento BETWEEN CAST(GETDATE() AS DATE) AND DATEADD(DAY,30,CAST(GETDATE() AS DATE))
+        AND data_vencimento BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'
         AND status = 'ativa'
       ORDER BY data_vencimento
     `);
@@ -107,10 +107,7 @@ router.get('/empresas', async (req, res) => {
       FROM Empresas e
       LEFT JOIN Usuarios u ON u.empresa_id = e.id
       ${where}
-      GROUP BY e.id, e.razao_social, e.cnpj, e.email, e.telefone, e.ativo,
-               e.plano, e.data_contratacao, e.data_vencimento, e.status, e.criado_em,
-               e.limite_usuarios, e.limite_produtos, e.limite_clientes,
-               e.limite_armazenamento, e.trial_expira_em
+      GROUP BY e.id
       ORDER BY e.id DESC
     `, params);
     res.json(r.recordset);
@@ -124,14 +121,15 @@ router.get('/empresas', async (req, res) => {
 router.get('/empresas/:id', async (req, res) => {
   try {
     const r = await query(`
-      SELECT e.*, COUNT(u.id) AS qtd_usuarios
+      SELECT e.id, e.razao_social, e.cnpj, e.email, e.telefone, e.ativo,
+             e.plano, e.data_contratacao, e.data_vencimento, e.status, e.logo, e.criado_em,
+             e.limite_usuarios, e.limite_produtos, e.limite_clientes,
+             e.limite_armazenamento, e.trial_expira_em,
+             COUNT(u.id) AS qtd_usuarios
       FROM Empresas e
       LEFT JOIN Usuarios u ON u.empresa_id = e.id
       WHERE e.id = @id AND e.id <> 1
-      GROUP BY e.id, e.razao_social, e.cnpj, e.email, e.telefone, e.ativo,
-               e.plano, e.data_contratacao, e.data_vencimento, e.status, e.criado_em,
-               e.limite_usuarios, e.limite_produtos, e.limite_clientes,
-               e.limite_armazenamento, e.trial_expira_em
+      GROUP BY e.id
     `, { id: parseInt(req.params.id) });
     if (!r.recordset[0]) return res.status(404).json({ error: 'Empresa não encontrada.' });
     res.json(r.recordset[0]);
@@ -153,13 +151,13 @@ router.post('/empresas', async (req, res) => {
         (razao_social, cnpj, email, telefone, plano, data_contratacao, data_vencimento,
          status, ativo, limite_usuarios, limite_produtos, limite_clientes,
          limite_armazenamento, trial_expira_em)
-      OUTPUT INSERTED.id
       VALUES (@razao_social, @cnpj, @email, @telefone, @plano, @dc, @dv,
               @status, @ativo, @lu, @lp, @lc, @larm, @trial)
+      RETURNING id
     `, {
       razao_social: b.razao_social, cnpj: b.cnpj||null, email: b.email||null, telefone: b.telefone||null,
       plano: b.plano||'Gratuito', dc: dateOrNull(b.data_contratacao), dv: dateOrNull(b.data_vencimento),
-      status, ativo: status === 'ativa' ? 1 : 0,
+      status, ativo: status === 'ativa',
       lu: numOrNull(b.limite_usuarios), lp: numOrNull(b.limite_produtos), lc: numOrNull(b.limite_clientes),
       larm: numOrNull(b.limite_armazenamento), trial: dateOrNull(b.trial_expira_em),
     });
@@ -204,7 +202,7 @@ router.put('/empresas/:id', async (req, res) => {
     `, {
       razao_social: b.razao_social, cnpj: b.cnpj||null, email: b.email||null, telefone: b.telefone||null,
       plano: b.plano||'Gratuito', dc: dateOrNull(b.data_contratacao), dv: dateOrNull(b.data_vencimento),
-      status, ativo: status === 'ativa' ? 1 : 0,
+      status, ativo: status === 'ativa',
       lu: numOrNull(b.limite_usuarios), lp: numOrNull(b.limite_produtos), lc: numOrNull(b.limite_clientes),
       larm: numOrNull(b.limite_armazenamento), trial: dateOrNull(b.trial_expira_em),
       id: parseInt(req.params.id),
@@ -222,8 +220,8 @@ router.patch('/empresas/:id/toggle', async (req, res) => {
     if (parseInt(req.params.id) === 1) return res.status(403).json({ error: 'Não é possível alterar a empresa matriz.' });
     await query(`
       UPDATE Empresas
-      SET ativo  = CASE WHEN ativo=1 THEN 0 ELSE 1 END,
-          status = CASE WHEN ativo=1 THEN 'suspensa' ELSE 'ativa' END
+      SET ativo  = NOT ativo,
+          status = CASE WHEN ativo THEN 'suspensa' ELSE 'ativa' END
       WHERE id=@id
     `, { id: parseInt(req.params.id) });
     res.json({ ok: true });
@@ -241,7 +239,7 @@ router.patch('/empresas/:id/status', async (req, res) => {
     if (parseInt(req.params.id) === 1) return res.status(403).json({ error: 'Não é possível alterar a empresa matriz.' });
     await query(`
       UPDATE Empresas SET status=@status, ativo=@ativo WHERE id=@id
-    `, { status, ativo: status === 'ativa' ? 1 : 0, id: parseInt(req.params.id) });
+    `, { status, ativo: status === 'ativa', id: parseInt(req.params.id) });
     res.json({ ok: true });
   } catch (err) {
     console.error(err);

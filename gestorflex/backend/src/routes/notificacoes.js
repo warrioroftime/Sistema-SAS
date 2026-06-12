@@ -25,9 +25,9 @@ router.get('/', auth, async (req, res) => {
     // Contas a receber vencidas / vencendo hoje
     const cr = (await query(`
       SELECT
-        SUM(CASE WHEN data_vencimento < CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS vencidas,
-        SUM(CASE WHEN CAST(data_vencimento AS DATE) = CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS hoje,
-        COALESCE(SUM(CASE WHEN data_vencimento < CAST(GETDATE() AS DATE) THEN (valor - COALESCE(valor_recebido,0)) ELSE 0 END),0) AS valor_vencido
+        SUM(CASE WHEN data_vencimento < CURRENT_DATE THEN 1 ELSE 0 END) AS vencidas,
+        SUM(CASE WHEN CAST(data_vencimento AS DATE) = CURRENT_DATE THEN 1 ELSE 0 END) AS hoje,
+        COALESCE(SUM(CASE WHEN data_vencimento < CURRENT_DATE THEN (valor - COALESCE(valor_recebido,0)) ELSE 0 END),0) AS valor_vencido
       FROM ContasReceber WHERE empresa_id=@emp AND status IN ('pendente','parcial')
     `, { emp })).recordset[0];
     if (Number(cr.vencidas) > 0)
@@ -40,8 +40,8 @@ router.get('/', auth, async (req, res) => {
     // Contas a pagar vencidas / vencendo hoje
     const cp = (await query(`
       SELECT
-        SUM(CASE WHEN data_vencimento < CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS vencidas,
-        SUM(CASE WHEN CAST(data_vencimento AS DATE) = CAST(GETDATE() AS DATE) THEN 1 ELSE 0 END) AS hoje
+        SUM(CASE WHEN data_vencimento < CURRENT_DATE THEN 1 ELSE 0 END) AS vencidas,
+        SUM(CASE WHEN CAST(data_vencimento AS DATE) = CURRENT_DATE THEN 1 ELSE 0 END) AS hoje
       FROM ContasPagar WHERE empresa_id=@emp AND status IN ('pendente','parcial')
     `, { emp })).recordset[0];
     if (Number(cp.vencidas) > 0)
@@ -53,7 +53,7 @@ router.get('/', auth, async (req, res) => {
 
     // Plano do tenant vencendo (somente quando há data de vencimento e <= 7 dias)
     const empd = (await query(`
-      SELECT data_vencimento, DATEDIFF(DAY, CAST(GETDATE() AS DATE), data_vencimento) AS dias
+      SELECT data_vencimento, (data_vencimento::date - CURRENT_DATE) AS dias
       FROM Empresas WHERE id=@emp
     `, { emp })).recordset[0];
     if (empd && empd.data_vencimento != null && empd.dias != null) {

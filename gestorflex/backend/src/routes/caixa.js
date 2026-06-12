@@ -6,7 +6,7 @@ const { auth } = require('../middleware/auth');
 // Busca o caixa aberto do usuário atual (ou null)
 async function caixaAbertoId(emp, uid) {
   const r = await query(
-    `SELECT TOP 1 id FROM Caixa WHERE empresa_id=@emp AND usuario_id=@uid AND status='aberto' ORDER BY id DESC`,
+    `SELECT id FROM Caixa WHERE empresa_id=@emp AND usuario_id=@uid AND status='aberto' ORDER BY id DESC LIMIT 1`,
     { emp, uid }
   );
   return r.recordset[0] ? r.recordset[0].id : null;
@@ -69,7 +69,7 @@ async function resumoCaixa(caixaId, emp) {
        COALESCE(SUM(CASE WHEN forma_pagamento='dinheiro' THEN valor_recebido END),0) AS receb_dinheiro,
        COALESCE(SUM(valor_recebido),0) AS receb_total,
        COUNT(*) AS qtd_receb
-     FROM RecebimentosContas WHERE caixa_id=@id AND estornado=0`,
+     FROM RecebimentosContas WHERE caixa_id=@id AND estornado=FALSE`,
     { id: caixaId }
   );
 
@@ -123,7 +123,7 @@ router.post('/abrir', auth, async (req, res) => {
     }
     const r = await query(
       `INSERT INTO Caixa (empresa_id, usuario_id, valor_abertura, obs_abertura)
-       OUTPUT INSERTED.id VALUES (@emp, @uid, @valor, @obs)`,
+       VALUES (@emp, @uid, @valor, @obs) RETURNING id`,
       { emp: req.user.empresa_id, uid: req.user.id, valor, obs }
     );
     res.status(201).json({ id: r.recordset[0].id });
@@ -175,7 +175,7 @@ router.post('/fechar', auth, async (req, res) => {
 
     await query(
       `UPDATE Caixa SET status='fechado', valor_informado=@inf, valor_esperado=@esp,
-         diferenca=@dif, data_fechamento=GETDATE(), obs_fechamento=@obs
+         diferenca=@dif, data_fechamento=NOW(), obs_fechamento=@obs
        WHERE id=@id AND empresa_id=@emp`,
       { inf: informado, esp: esperado, dif: diferenca, obs, id, emp: req.user.empresa_id }
     );
@@ -190,11 +190,11 @@ router.post('/fechar', auth, async (req, res) => {
 router.get('/historico', auth, async (req, res) => {
   try {
     const r = await query(
-      `SELECT TOP 50 c.id, c.valor_abertura, c.data_abertura, c.valor_informado,
+      `SELECT c.id, c.valor_abertura, c.data_abertura, c.valor_informado,
               c.valor_esperado, c.diferenca, c.data_fechamento, u.nome AS operador
        FROM Caixa c LEFT JOIN Usuarios u ON u.id = c.usuario_id
        WHERE c.empresa_id=@emp AND c.status='fechado'
-       ORDER BY c.id DESC`,
+       ORDER BY c.id DESC LIMIT 50`,
       { emp: req.user.empresa_id }
     );
     res.json(r.recordset);

@@ -20,7 +20,7 @@ router.get('/dashboard', auth, async (req, res) => {
     const kpis = await query(`
       SELECT COUNT(*) AS qtd_vendas, COALESCE(SUM(total),0) AS faturamento,
              COALESCE(AVG(total),0) AS ticket_medio, COALESCE(SUM(desconto),0) AS total_descontos
-      FROM Vendas WHERE empresa_id=@emp AND status='ativa' AND criado_em >= DATEADD(DAY,-@dias,GETDATE())
+      FROM Vendas WHERE empresa_id=@emp AND status='ativa' AND criado_em >= NOW() - (@dias * INTERVAL '1 day')
     `, { emp, dias });
 
     const estoque = await query(`
@@ -31,26 +31,26 @@ router.get('/dashboard', auth, async (req, res) => {
     `, { emp });
 
     const topProd = await query(`
-      SELECT TOP 6 p.descricao, SUM(iv.quantidade) AS qtd_vendida
+      SELECT p.descricao, SUM(iv.quantidade) AS qtd_vendida
       FROM ItensVenda iv JOIN Produtos p ON p.id=iv.produto_id JOIN Vendas v ON v.id=iv.venda_id
-      WHERE v.empresa_id=@emp AND v.criado_em >= DATEADD(DAY,-@dias,GETDATE())
-      GROUP BY p.id,p.descricao ORDER BY qtd_vendida DESC
+      WHERE v.empresa_id=@emp AND v.criado_em >= NOW() - (@dias * INTERVAL '1 day')
+      GROUP BY p.id,p.descricao ORDER BY qtd_vendida DESC LIMIT 6
     `, { emp, dias });
 
     const ultimasVendas = await query(`
-      SELECT TOP 5 v.id, v.criado_em, v.total, fp.nome AS pagamento,
+      SELECT v.id, v.criado_em, v.total, fp.nome AS pagamento,
              COALESCE(c.nome,'Consumidor') AS cliente,
              (SELECT COUNT(*) FROM ItensVenda WHERE venda_id=v.id) AS qtd_itens
       FROM Vendas v LEFT JOIN Clientes c ON c.id=v.cliente_id
       LEFT JOIN FormasPagamento fp ON fp.id=v.forma_pagamento_id
-      WHERE v.empresa_id=@emp ORDER BY v.criado_em DESC
+      WHERE v.empresa_id=@emp ORDER BY v.criado_em DESC LIMIT 5
     `, { emp });
 
     const alertas = await query(`
-      SELECT TOP 10 id, codigo, descricao, estoque, estoque_min,
+      SELECT id, codigo, descricao, estoque, estoque_min,
              CASE WHEN estoque=0 THEN 'falta' ELSE 'critico' END AS tipo
       FROM Produtos WHERE empresa_id=@emp AND status='ativo' AND estoque<=estoque_min
-      ORDER BY estoque ASC
+      ORDER BY estoque ASC LIMIT 10
     `, { emp });
 
     res.json({
@@ -90,10 +90,10 @@ const RELATORIOS = {
       `, { emp, de, ate })).recordset[0];
 
       const extrato = (await query(`
-        SELECT CAST(criado_em AS DATE) AS data, COUNT(*) AS qtd_vendas,
+        SELECT criado_em::DATE AS data, COUNT(*) AS qtd_vendas,
                SUM(total) AS total, SUM(desconto) AS descontos
         FROM Vendas WHERE empresa_id=@emp AND criado_em BETWEEN @de AND @ate
-        GROUP BY CAST(criado_em AS DATE) ORDER BY data ASC
+        GROUP BY criado_em::DATE ORDER BY data ASC
       `, { emp, de, ate })).recordset;
 
       return {
@@ -229,9 +229,9 @@ const RELATORIOS = {
     usaPeriodo: true,
     async run(emp, de, ate) {
       const rows = (await query(`
-        SELECT DATEPART(HOUR, criado_em) AS hora, COUNT(*) AS qtd_vendas, SUM(total) AS total
+        SELECT EXTRACT(HOUR FROM criado_em)::INT AS hora, COUNT(*) AS qtd_vendas, SUM(total) AS total
         FROM Vendas WHERE empresa_id=@emp AND criado_em BETWEEN @de AND @ate
-        GROUP BY DATEPART(HOUR, criado_em) ORDER BY hora ASC
+        GROUP BY EXTRACT(HOUR FROM criado_em) ORDER BY hora ASC
       `, { emp, de, ate })).recordset;
       rows.forEach(r => { r.faixa = String(r.hora).padStart(2, '0') + 'h'; });
       const fat  = rows.reduce((s, r) => s + Number(r.total || 0), 0);
@@ -262,12 +262,12 @@ const RELATORIOS = {
     descricao: 'Faturamento agrupado por dia da semana.',
     usaPeriodo: true,
     async run(emp, de, ate) {
-      // (DATEDIFF a partir de 1900-01-01, uma segunda-feira) % 7 → 0=Seg … 6=Dom (independe de idioma)
+      // EXTRACT(DOW): 0=Dom..6=Sab → (DOW+6)%7 converte para 0=Seg..6=Dom
       const rows = (await query(`
-        SELECT (DATEDIFF(DAY,'19000101', criado_em) % 7) AS dow,
+        SELECT ((EXTRACT(DOW FROM criado_em)::INT + 6) % 7) AS dow,
                COUNT(*) AS qtd_vendas, SUM(total) AS total
         FROM Vendas WHERE empresa_id=@emp AND criado_em BETWEEN @de AND @ate
-        GROUP BY (DATEDIFF(DAY,'19000101', criado_em) % 7) ORDER BY dow ASC
+        GROUP BY ((EXTRACT(DOW FROM criado_em)::INT + 6) % 7) ORDER BY dow ASC
       `, { emp, de, ate })).recordset;
       const NOMES = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
       rows.forEach(r => { r.dia = NOMES[r.dow]; });
@@ -299,7 +299,7 @@ const RELATORIOS = {
     usaPeriodo: true,
     async run(emp, de, ate) {
       const rows = (await query(`
-        SELECT TOP 500 v.id, v.criado_em AS data, COALESCE(c.nome,'Consumidor') AS cliente,
+        SELECT v.id, v.criado_em AS data, COALESCE(c.nome,'Consumidor') AS cliente,
                COALESCE(u.nome,'—') AS operador, COALESCE(fp.nome,'—') AS pagamento,
                (SELECT COUNT(*) FROM ItensVenda WHERE venda_id=v.id) AS itens,
                v.desconto, v.total
@@ -308,7 +308,7 @@ const RELATORIOS = {
         LEFT JOIN Usuarios u ON u.id=v.usuario_id
         LEFT JOIN FormasPagamento fp ON fp.id=v.forma_pagamento_id
         WHERE v.empresa_id=@emp AND v.criado_em BETWEEN @de AND @ate
-        ORDER BY v.criado_em DESC
+        ORDER BY v.criado_em DESC LIMIT 500
       `, { emp, de, ate })).recordset;
       const fat = rows.reduce((s, r) => s + Number(r.total || 0), 0);
       return {
@@ -340,9 +340,9 @@ const RELATORIOS = {
     usaPeriodo: true,
     async run(emp, de, ate) {
       const rows = (await query(`
-        SELECT FORMAT(criado_em,'yyyy-MM') AS mes, COUNT(*) AS qtd_vendas, SUM(total) AS total
+        SELECT TO_CHAR(criado_em,'YYYY-MM') AS mes, COUNT(*) AS qtd_vendas, SUM(total) AS total
         FROM Vendas WHERE empresa_id=@emp AND criado_em BETWEEN @de AND @ate
-        GROUP BY FORMAT(criado_em,'yyyy-MM') ORDER BY mes ASC
+        GROUP BY TO_CHAR(criado_em,'YYYY-MM') ORDER BY mes ASC
       `, { emp, de, ate })).recordset;
       rows.forEach(r => { const [y, m] = r.mes.split('-'); r.mes_label = `${m}/${y}`; });
       const fat = rows.reduce((s, r) => s + Number(r.total || 0), 0);
@@ -488,16 +488,16 @@ const RELATORIOS = {
     usaPeriodo: true,
     async run(emp, de, ate) {
       const rows = (await query(`
-        SELECT TOP 100 p.codigo, p.descricao, p.estoque,
+        SELECT p.codigo, p.descricao, p.estoque,
                COALESCE(vd.qtd,0) AS qtd, COALESCE(vd.faturado,0) AS faturado
         FROM Produtos p
-        OUTER APPLY (
+        LEFT JOIN LATERAL (
           SELECT SUM(iv.quantidade) AS qtd, SUM(iv.subtotal) AS faturado
           FROM ItensVenda iv JOIN Vendas v ON v.id=iv.venda_id
           WHERE iv.produto_id=p.id AND v.empresa_id=@emp AND v.criado_em BETWEEN @de AND @ate
-        ) vd
+        ) vd ON TRUE
         WHERE p.empresa_id=@emp AND p.status='ativo'
-        ORDER BY qtd ASC, faturado ASC, p.descricao ASC
+        ORDER BY qtd ASC, faturado ASC, p.descricao ASC LIMIT 100
       `, { emp, de, ate })).recordset;
       const semVenda = rows.filter(r => Number(r.qtd) === 0).length;
       return {
@@ -821,7 +821,7 @@ const RELATORIOS = {
                cr.valor, COALESCE(cr.valor_recebido,0) AS recebido,
                (cr.valor - COALESCE(cr.valor_recebido,0)) AS saldo,
                cr.data_vencimento, cr.status,
-               DATEDIFF(DAY, cr.data_vencimento, GETDATE()) AS dias_atraso
+               (CURRENT_DATE - cr.data_vencimento::date) AS dias_atraso
         FROM ContasReceber cr LEFT JOIN Clientes c ON c.id=cr.cliente_id
         WHERE cr.empresa_id=@emp AND cr.status IN ('pendente','parcial')
         ORDER BY cr.data_vencimento ASC
@@ -862,10 +862,10 @@ const RELATORIOS = {
         SELECT faixa, COUNT(*) AS titulos, SUM(saldo) AS saldo FROM (
           SELECT (cr.valor - COALESCE(cr.valor_recebido,0)) AS saldo,
             CASE
-              WHEN cr.data_vencimento IS NULL OR DATEDIFF(DAY, cr.data_vencimento, GETDATE()) <= 0 THEN 'A vencer'
-              WHEN DATEDIFF(DAY, cr.data_vencimento, GETDATE()) <= 30 THEN '1 a 30 dias'
-              WHEN DATEDIFF(DAY, cr.data_vencimento, GETDATE()) <= 60 THEN '31 a 60 dias'
-              WHEN DATEDIFF(DAY, cr.data_vencimento, GETDATE()) <= 90 THEN '61 a 90 dias'
+              WHEN cr.data_vencimento IS NULL OR (CURRENT_DATE - cr.data_vencimento::date) <= 0 THEN 'A vencer'
+              WHEN (CURRENT_DATE - cr.data_vencimento::date) <= 30 THEN '1 a 30 dias'
+              WHEN (CURRENT_DATE - cr.data_vencimento::date) <= 60 THEN '31 a 60 dias'
+              WHEN (CURRENT_DATE - cr.data_vencimento::date) <= 90 THEN '61 a 90 dias'
               ELSE 'Mais de 90 dias'
             END AS faixa
           FROM ContasReceber cr
@@ -907,7 +907,7 @@ const RELATORIOS = {
                cp.valor, COALESCE(cp.valor_pago,0) AS pago,
                (cp.valor - COALESCE(cp.valor_pago,0)) AS saldo,
                cp.data_vencimento, cp.status,
-               DATEDIFF(DAY, cp.data_vencimento, GETDATE()) AS dias_atraso
+               (CURRENT_DATE - cp.data_vencimento::date) AS dias_atraso
         FROM ContasPagar cp
         WHERE cp.empresa_id=@emp AND cp.status IN ('pendente','parcial')
         ORDER BY cp.data_vencimento ASC
@@ -948,10 +948,10 @@ const RELATORIOS = {
         SELECT faixa, COUNT(*) AS titulos, SUM(saldo) AS saldo FROM (
           SELECT (cp.valor - COALESCE(cp.valor_pago,0)) AS saldo,
             CASE
-              WHEN cp.data_vencimento IS NULL OR DATEDIFF(DAY, cp.data_vencimento, GETDATE()) <= 0 THEN 'A vencer'
-              WHEN DATEDIFF(DAY, cp.data_vencimento, GETDATE()) <= 30 THEN '1 a 30 dias'
-              WHEN DATEDIFF(DAY, cp.data_vencimento, GETDATE()) <= 60 THEN '31 a 60 dias'
-              WHEN DATEDIFF(DAY, cp.data_vencimento, GETDATE()) <= 90 THEN '61 a 90 dias'
+              WHEN cp.data_vencimento IS NULL OR (CURRENT_DATE - cp.data_vencimento::date) <= 0 THEN 'A vencer'
+              WHEN (CURRENT_DATE - cp.data_vencimento::date) <= 30 THEN '1 a 30 dias'
+              WHEN (CURRENT_DATE - cp.data_vencimento::date) <= 60 THEN '31 a 60 dias'
+              WHEN (CURRENT_DATE - cp.data_vencimento::date) <= 90 THEN '61 a 90 dias'
               ELSE 'Mais de 90 dias'
             END AS faixa
           FROM ContasPagar cp
@@ -989,14 +989,14 @@ const RELATORIOS = {
     usaPeriodo: true,
     async run(emp, de, ate) {
       const rows = (await query(`
-        SELECT TOP 300 rc.data_recebimento AS data, COALESCE(c.nome,'—') AS cliente,
+        SELECT rc.data_recebimento AS data, COALESCE(c.nome,'—') AS cliente,
                rc.valor_recebido AS valor, rc.forma_pagamento, COALESCE(u.nome,'—') AS usuario
         FROM RecebimentosContas rc
         LEFT JOIN ContasReceber cr ON cr.id=rc.conta_id
         LEFT JOIN Clientes c ON c.id=cr.cliente_id
         LEFT JOIN Usuarios u ON u.id=rc.usuario_id
-        WHERE rc.empresa_id=@emp AND rc.estornado=0 AND rc.data_recebimento BETWEEN @de AND @ate
-        ORDER BY rc.data_recebimento DESC
+        WHERE rc.empresa_id=@emp AND rc.estornado=FALSE AND rc.data_recebimento BETWEEN @de AND @ate
+        ORDER BY rc.data_recebimento DESC LIMIT 300
       `, { emp, de, ate })).recordset;
       const total = rows.reduce((s, r) => s + Number(r.valor || 0), 0);
       const porForma = {};
@@ -1030,13 +1030,13 @@ const RELATORIOS = {
     usaPeriodo: true,
     async run(emp, de, ate) {
       const rows = (await query(`
-        SELECT TOP 300 pp.data_pagamento AS data, COALESCE(cp.fornecedor,'—') AS fornecedor,
+        SELECT pp.data_pagamento AS data, COALESCE(cp.fornecedor,'—') AS fornecedor,
                pp.valor_pago AS valor, pp.forma_pagamento, COALESCE(u.nome,'—') AS usuario
         FROM PagamentosContasPagar pp
         LEFT JOIN ContasPagar cp ON cp.id=pp.conta_id
         LEFT JOIN Usuarios u ON u.id=pp.usuario_id
-        WHERE pp.empresa_id=@emp AND pp.estornado=0 AND pp.data_pagamento BETWEEN @de AND @ate
-        ORDER BY pp.data_pagamento DESC
+        WHERE pp.empresa_id=@emp AND pp.estornado=FALSE AND pp.data_pagamento BETWEEN @de AND @ate
+        ORDER BY pp.data_pagamento DESC LIMIT 300
       `, { emp, de, ate })).recordset;
       const total = rows.reduce((s, r) => s + Number(r.valor || 0), 0);
       const porForma = {};
@@ -1103,11 +1103,11 @@ const RELATORIOS = {
     usaPeriodo: true,
     async run(emp, de, ate) {
       const rows = (await query(`
-        SELECT TOP 100 c.nome AS cliente, COUNT(v.id) AS compras,
+        SELECT c.nome AS cliente, COUNT(v.id) AS compras,
                SUM(v.total) AS total, AVG(v.total) AS ticket, MAX(v.criado_em) AS ultima
         FROM Vendas v JOIN Clientes c ON c.id=v.cliente_id
         WHERE v.empresa_id=@emp AND v.criado_em BETWEEN @de AND @ate
-        GROUP BY c.id, c.nome ORDER BY total DESC
+        GROUP BY c.id, c.nome ORDER BY total DESC LIMIT 100
       `, { emp, de, ate })).recordset;
       const total = rows.reduce((s, r) => s + Number(r.total || 0), 0);
       return {
@@ -1172,7 +1172,7 @@ const RELATORIOS = {
       const rows = (await query(`
         SELECT COALESCE(NULLIF(cidade,''),'—') AS cidade,
                COALESCE(NULLIF(estado,''),'') AS uf, COUNT(*) AS clientes
-        FROM Clientes WHERE empresa_id=@emp AND ativo=1
+        FROM Clientes WHERE empresa_id=@emp AND ativo=TRUE
         GROUP BY cidade, estado ORDER BY clientes DESC
       `, { emp })).recordset;
       const total = rows.reduce((s, r) => s + Number(r.clientes || 0), 0);
@@ -1203,16 +1203,16 @@ const RELATORIOS = {
     usaPeriodo: false,
     async run(emp) {
       const rows = (await query(`
-        SELECT TOP 200 c.nome AS cliente, c.telefone, ult.ultima, ult.compras,
-               DATEDIFF(DAY, ult.ultima, GETDATE()) AS dias_sem_comprar
+        SELECT c.nome AS cliente, c.telefone, ult.ultima, ult.compras,
+               (CURRENT_DATE - ult.ultima::date) AS dias_sem_comprar
         FROM Clientes c
-        CROSS APPLY (
+        CROSS JOIN LATERAL (
           SELECT MAX(v.criado_em) AS ultima, COUNT(v.id) AS compras
           FROM Vendas v WHERE v.cliente_id=c.id AND v.empresa_id=@emp
         ) ult
-        WHERE c.empresa_id=@emp AND c.ativo=1
-          AND (ult.ultima IS NULL OR ult.ultima < DATEADD(DAY,-60,GETDATE()))
-        ORDER BY ult.ultima ASC
+        WHERE c.empresa_id=@emp AND c.ativo=TRUE
+          AND (ult.ultima IS NULL OR ult.ultima < NOW() - INTERVAL '60 days')
+        ORDER BY ult.ultima ASC LIMIT 200
       `, { emp })).recordset;
       const nunca = rows.filter(r => !r.ultima).length;
       return {
@@ -1240,12 +1240,12 @@ const RELATORIOS = {
     usaPeriodo: true,
     async run(emp, de, ate) {
       const rows = (await query(`
-        SELECT TOP 300 m.criado_em, p.descricao, m.tipo, m.quantidade,
+        SELECT m.criado_em, p.descricao, m.tipo, m.quantidade,
                m.saldo_atual, m.origem, COALESCE(u.nome,'—') AS usuario
         FROM MovimentacoesEstoque m JOIN Produtos p ON p.id=m.produto_id
         LEFT JOIN Usuarios u ON u.id=m.usuario_id
         WHERE m.empresa_id=@emp AND m.criado_em BETWEEN @de AND @ate
-        ORDER BY m.criado_em DESC
+        ORDER BY m.criado_em DESC LIMIT 300
       `, { emp, de, ate })).recordset;
       const entradas = rows.filter(r => r.tipo === 'entrada').reduce((s, r) => s + Number(r.quantidade || 0), 0);
       const saidas   = rows.filter(r => r.tipo === 'saida').reduce((s, r) => s + Number(r.quantidade || 0), 0);
@@ -1314,11 +1314,11 @@ const RELATORIOS = {
     usaPeriodo: true,
     async run(emp, de, ate) {
       const rows = (await query(`
-        SELECT TOP 300 mc.criado_em AS data, mc.tipo, mc.valor, mc.descricao,
+        SELECT mc.criado_em AS data, mc.tipo, mc.valor, mc.descricao,
                COALESCE(u.nome,'—') AS usuario
         FROM MovimentacoesCaixa mc LEFT JOIN Usuarios u ON u.id=mc.usuario_id
         WHERE mc.empresa_id=@emp AND mc.criado_em BETWEEN @de AND @ate
-        ORDER BY mc.criado_em DESC
+        ORDER BY mc.criado_em DESC LIMIT 300
       `, { emp, de, ate })).recordset;
       const sup = rows.filter(r => r.tipo === 'suprimento').reduce((s, r) => s + Number(r.valor || 0), 0);
       const san = rows.filter(r => r.tipo === 'sangria').reduce((s, r) => s + Number(r.valor || 0), 0);
@@ -1361,7 +1361,7 @@ const RELATORIOS = {
 
       const despesas = Number((await query(`
         SELECT COALESCE(SUM(valor_pago),0) AS v FROM PagamentosContasPagar
-        WHERE empresa_id=@emp AND estornado=0 AND data_pagamento BETWEEN @de AND @ate
+        WHERE empresa_id=@emp AND estornado=FALSE AND data_pagamento BETWEEN @de AND @ate
       `, { emp, de, ate })).recordset[0].v);
 
       const receita = Number(v.faturamento);
@@ -1398,24 +1398,24 @@ const RELATORIOS = {
     usaPeriodo: true,
     async run(emp, de, ate) {
       const rec = (await query(`
-        SELECT FORMAT(criado_em,'yyyy-MM') AS mes, SUM(total) AS receita
+        SELECT TO_CHAR(criado_em,'YYYY-MM') AS mes, SUM(total) AS receita
         FROM Vendas WHERE empresa_id=@emp AND criado_em BETWEEN @de AND @ate
-        GROUP BY FORMAT(criado_em,'yyyy-MM')
+        GROUP BY TO_CHAR(criado_em,'YYYY-MM')
       `, { emp, de, ate })).recordset;
 
       const cmv = (await query(`
-        SELECT FORMAT(v.criado_em,'yyyy-MM') AS mes, SUM(iv.quantidade * p.preco_custo) AS cmv
+        SELECT TO_CHAR(v.criado_em,'YYYY-MM') AS mes, SUM(iv.quantidade * p.preco_custo) AS cmv
         FROM ItensVenda iv JOIN Produtos p ON p.id=iv.produto_id
         JOIN Vendas v ON v.id=iv.venda_id
         WHERE v.empresa_id=@emp AND v.criado_em BETWEEN @de AND @ate
-        GROUP BY FORMAT(v.criado_em,'yyyy-MM')
+        GROUP BY TO_CHAR(v.criado_em,'YYYY-MM')
       `, { emp, de, ate })).recordset;
 
       const desp = (await query(`
-        SELECT FORMAT(data_pagamento,'yyyy-MM') AS mes, SUM(valor_pago) AS despesas
+        SELECT TO_CHAR(data_pagamento,'YYYY-MM') AS mes, SUM(valor_pago) AS despesas
         FROM PagamentosContasPagar
-        WHERE empresa_id=@emp AND estornado=0 AND data_pagamento BETWEEN @de AND @ate
-        GROUP BY FORMAT(data_pagamento,'yyyy-MM')
+        WHERE empresa_id=@emp AND estornado=FALSE AND data_pagamento BETWEEN @de AND @ate
+        GROUP BY TO_CHAR(data_pagamento,'YYYY-MM')
       `, { emp, de, ate })).recordset;
 
       // Mescla as três séries por mês
@@ -1470,12 +1470,12 @@ const RELATORIOS = {
 
       const receb = Number((await query(`
         SELECT COALESCE(SUM(valor_recebido),0) AS v FROM RecebimentosContas
-        WHERE empresa_id=@emp AND estornado=0 AND data_recebimento BETWEEN @de AND @ate
+        WHERE empresa_id=@emp AND estornado=FALSE AND data_recebimento BETWEEN @de AND @ate
       `, { emp, de, ate })).recordset[0].v);
 
       const pagos = Number((await query(`
         SELECT COALESCE(SUM(valor_pago),0) AS v FROM PagamentosContasPagar
-        WHERE empresa_id=@emp AND estornado=0 AND data_pagamento BETWEEN @de AND @ate
+        WHERE empresa_id=@emp AND estornado=FALSE AND data_pagamento BETWEEN @de AND @ate
       `, { emp, de, ate })).recordset[0].v);
 
       const entradas = vendas + receb;
